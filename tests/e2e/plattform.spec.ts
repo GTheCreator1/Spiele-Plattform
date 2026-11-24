@@ -23,6 +23,11 @@ test('Katalog und soziale Ansichten wechseln innerhalb desselben Dokuments', asy
   await expect(page.getByRole('heading', { name: 'Freundschaftsanfragen' })).toBeVisible()
   await nav.getByRole('link', { name: 'Nachrichten' }).click()
   await expect(page.getByRole('heading', { name: 'Ingame-Chat' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Spiele', exact: true }).click()
+  await page.getByRole('link', { name: 'Lügen', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Mach ich bald', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Zurück zum Hauptmenü' }).click()
+  await expect(page.getByRole('heading', { name: 'Willkommen am Spieltisch.' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-spa-test', 'offen')
 })
 

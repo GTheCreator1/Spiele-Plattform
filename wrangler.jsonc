@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "stichrunde-api",
+  "main": "server/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "APP_URL": "https://gthecreator1.github.io/Spiele-Plattform/",
+    "REQUIRE_INVITE": "true"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "GROUP", "class_name": "GameGroup" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GameGroup"] }]
+}

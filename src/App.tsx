@@ -3,6 +3,7 @@ import { HashRouter, Link, Route, Routes, useLocation } from 'react-router-dom'
 import { Overview, GameCatalog } from './features/catalog/Catalog'
 import { loadGameDetail, loadXeriTable } from './features/catalog/game-loaders'
 import { PreferencesProvider } from './platform/preferences'
+import { OnlineProvider } from './platform/online'
 import { AppShell } from './ui/AppShell'
 import { RouteErrorBoundary } from './ui/RouteErrorBoundary'
 
@@ -11,12 +12,13 @@ const XeriTable = lazy(loadXeriTable)
 const Friends = lazy(() => import('./features/community/Friends'))
 const Messages = lazy(() => import('./features/community/Messages'))
 const Profile = lazy(() => import('./features/community/Profile'))
+const Lobby = lazy(() => import('./features/community/Lobby'))
 
 export function App() {
   return (
     <PreferencesProvider>
       <HashRouter>
-        <PlatformRoutes />
+        <OnlineProvider><PlatformRoutes /></OnlineProvider>
       </HashRouter>
     </PreferencesProvider>
   )
@@ -36,6 +38,8 @@ function PlatformRoutes() {
             <Route path="/freunde" element={<Friends />} />
             <Route path="/nachrichten" element={<Messages />} />
             <Route path="/profil" element={<Profile />} />
+            <Route path="/lobby" element={<Lobby />} />
+            <Route path="/anmeldung/weiter" element={<p role="status">Anmeldung wird geprüft …</p>} />
             <Route path="*" element={<MissingPage />} />
           </Routes>
         </Suspense>

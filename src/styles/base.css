@@ -113,6 +113,9 @@ p { line-height: 1.55; }
 .feature-icon-violet { background: #272442; color: #bdaafc; }
 .feature-icon-amber { background: #38272c; color: #ff9f8e; }
 .feature-icon-teal { background: #1c352f; color: #82e7bc; }
+.muted { color: var(--muted); }
+.inline-error { color: #ffb6a9; background: #39242d; border: 1px solid #654550; border-radius: 9px; padding: .5rem .7rem; }
+.button:disabled { opacity: .57; }
 
 .page-heading { display: grid; gap: 1rem; margin: 0 0 1.5rem; }
 .page-heading h1 { font-size: clamp(1.9rem, 4.3vw, 2.8rem); font-weight: 800; }

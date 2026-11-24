@@ -1,14 +1,14 @@
 import { useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import type { Card } from '../../../vendor/xeri/game/engine.js'
+import type { CambioCard } from '../ab6super6/engine'
 import { CardFace, PileUnderlay } from './Card'
 
 export type Flight = {
-  card: Card
+  card: CambioCard
   origin: DOMRect
   landing: DOMRect
   capture: DOMRect | undefined
-  previousPile: Card[]
+  previousPile: CambioCard[]
 }
 
 export function CardFlight({ flight, onComplete }: { flight: Flight; onComplete: (flight: Flight) => void }) {

@@ -29,6 +29,12 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - run: npm run test:online
+      - name: Produktionsbuild mit freigegebenem Worker
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.VITE_API_URL != ''
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
       - name: Pages-Artefakt bereitstellen
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4

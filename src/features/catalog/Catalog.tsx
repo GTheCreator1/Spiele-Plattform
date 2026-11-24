@@ -5,6 +5,7 @@ import hero from '../../assets/hero.webp'
 import mobileHero from '../../assets/hero-mobile.webp'
 import { preloadGame } from './game-loaders'
 import { games } from './games'
+import { useOnline } from '../../platform/online'
 import type { Game } from './games'
 import '../../styles/catalog.css'
 
@@ -15,6 +16,7 @@ const filters = [
 ] as const
 
 export function Overview() {
+  const { configured } = useOnline()
   return (
     <div className="page-view overview">
       <section className="welcome-hero" aria-labelledby="welcome-title">
@@ -43,12 +45,12 @@ export function Overview() {
         <Link className="community-shortcut" to="/freunde">
           <span className="feature-icon feature-icon-violet"><UsersRound size={19} aria-hidden="true" /></span>
           <span><strong>Freunde</strong><small>Freundeslisten und Online-Status</small></span>
-          <span className="shortcut-status">In Entwicklung</span>
+          {!configured && <span className="shortcut-status">In Entwicklung</span>}
         </Link>
         <Link className="community-shortcut" to="/nachrichten">
           <span className="feature-icon feature-icon-amber"><Bell size={19} aria-hidden="true" /></span>
           <span><strong>Einladungen</strong><small>Einladungen und Ingame-Chat</small></span>
-          <span className="shortcut-status">In Entwicklung</span>
+          {!configured && <span className="shortcut-status">In Entwicklung</span>}
         </Link>
       </section>
     </div>
@@ -64,8 +66,11 @@ export function GameCatalog() {
 }
 
 function GameGrid({ overview = false }: { overview?: boolean }) {
+  const { configured } = useOnline()
   const [filter, setFilter] = useState<typeof filters[number]['value']>('all')
-  const visibleGames = games.filter((game) => filter === 'all' || (filter === 'ready' ? game.available : !game.available))
+  const visibleGames = games.map((game) => ({
+    ...game, available: game.available || (configured && game.id === 'ab6super6'),
+  })).filter((game) => filter === 'all' || (filter === 'ready' ? game.available : !game.available))
   const Heading = overview ? 'h2' : 'h1'
   return (
     <section className="game-library" aria-labelledby="game-library-title">
@@ -94,7 +99,7 @@ export function Availability({ available }: { available: boolean }) {
 }
 
 function GameTile({ game }: { game: Game }) {
-  const PlayersIcon = game.available ? Bot : UsersRound
+  const PlayersIcon = game.id === 'xeri' ? Bot : UsersRound
   return (
     <Link
       className="game-tile"

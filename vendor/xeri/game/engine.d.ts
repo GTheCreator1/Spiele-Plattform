@@ -43,6 +43,8 @@ export const SUITS: ReadonlyArray<{ id: Suit; symbol: string; name: string; red?
 export const DECK: ReadonlyArray<Card>
 export function rankOf(card: Card): Rank
 export function cardLabel(card: Card): string
+export function isCard(card: unknown): card is Card
+export function shuffle(cards?: ReadonlyArray<Card>, random?: () => number): Card[]
 export function newGame(seats: 2 | 4, deck?: ReadonlyArray<Card>): GameState
 export function playCard(game: GameState, seat: number, card: Card): (GameState & { lastMove: Move }) | null
 export function viewFor(game: GameState, seat: number): GameView

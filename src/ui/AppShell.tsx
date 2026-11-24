@@ -5,6 +5,8 @@ import { Bell, ChevronRight, Gamepad2, House, MessageSquare, Spade, UserRound, U
 import { findGame } from '../features/catalog/games'
 import { useNetworkConnection } from '../platform/connection'
 import { usePreferences } from '../platform/preferences'
+import { useOnline } from '../platform/online'
+import { InvitationList } from '../features/community/InvitationList'
 import '../styles/shell.css'
 
 const navigation = [
@@ -21,6 +23,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const game = findGame(pathname.split('/')[2])
   const { motion } = usePreferences()
   const connected = useNetworkConnection()
+  const online = useOnline()
+  const user = online.snapshot?.user
+  const count = online.snapshot?.invitations.length ?? 0
   const main = useRef<HTMLElement>(null)
   const invitations = useRef<HTMLDialogElement>(null)
   const previousPath = useRef(pathname)
@@ -54,11 +59,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-footer">
           <div className="local-status">
             <span className="local-status-icon"><Gamepad2 size={17} aria-hidden="true" /></span>
-            <div><strong>Lokaler Modus</strong><small>Online in Entwicklung</small></div>
+            <div><strong>{online.live ? 'Online' : 'Lokaler Modus'}</strong><small>{online.configured ? 'Xeri lokal spielbar' : 'Online in Entwicklung'}</small></div>
           </div>
           <Link className="sidebar-user" to="/profil" title="Profil und Einstellungen">
             <span className="avatar"><UserRound size={17} aria-hidden="true" /></span>
-            <span><strong>Gast</strong><small>Dieses Gerät</small></span>
+            <span><strong>{user?.name ?? 'Gast'}</strong><small>{user ? 'Profil' : 'Dieses Gerät'}</small></span>
           </Link>
         </div>
       </aside>
@@ -74,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {game && <><ChevronRight size={14} aria-hidden="true" /><span>{game.name}</span></>}
             </div>
             <button className="topbar-invitations" type="button" aria-haspopup="dialog" onClick={() => invitations.current?.showModal()}>
-              <Bell size={17} aria-hidden="true" /><span>Einladungen</span>
+              <Bell size={17} aria-hidden="true" /><span>Einladungen</span>{count > 0 && <span className="invitation-count">{count}</span>}
             </button>
           </div>
         </header>
@@ -82,6 +87,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="connection-banner" role="status">
             <WifiOff size={17} aria-hidden="true" /> Offline. Bereits gespeicherte Inhalte bleiben verfügbar.
           </p>
+        )}
+        {connected && user && !online.live && <p className="connection-banner" role="status">Live-Verbindung wird wiederhergestellt …</p>}
+        {user && online.snapshot?.lobby && pathname !== '/lobby' && (
+          <Link className="lobby-return" to="/lobby">Zur aktiven Lobby</Link>
         )}
         <main ref={main} id="hauptinhalt" tabIndex={-1} className="main-content">
           {children}
@@ -102,11 +111,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <h2 id="invitation-heading">Einladungen</h2>
             <form method="dialog"><button className="icon-button" aria-label="Einladungen schließen"><X size={20} /></button></form>
           </div>
-          <div className="dialog-empty">
-            <span className="feature-icon"><Bell size={23} aria-hidden="true" /></span>
-            <h3>In Entwicklung</h3>
-            <p>Hier erscheinen später Einladungen zu privaten Partien.</p>
-          </div>
+          {online.configured ? <InvitationList onAccept={() => invitations.current?.close()} /> : (
+            <div className="dialog-empty">
+              <span className="feature-icon"><Bell size={23} aria-hidden="true" /></span>
+              <h3>In Entwicklung</h3>
+              <p>Hier erscheinen später Einladungen zu privaten Partien.</p>
+            </div>
+          )}
         </div>
       </dialog>
     </div>

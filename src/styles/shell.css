@@ -129,6 +129,10 @@
 }
 .topbar-invitations:hover { background: #252737; }
 .topbar-invitations svg { color: var(--accent-hover); }
+.invitation-count { min-width: 1.34rem; padding: .1rem .25rem; border-radius: 8px; color: var(--accent-ink); text-align: center; background: var(--accent); }
+.lobby-return { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-hover); margin: .65rem var(--content-gutter) -.55rem; font-weight: 750; }
+.sidebar-user > span:nth-child(2) { min-width: 0; }
+.sidebar-user strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .mobile-brand, .mobile-navigation { display: none; }
 .main-content {
   outline: none;
