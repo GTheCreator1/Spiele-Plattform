@@ -20,7 +20,7 @@ test('Katalog, Raum und Einstellungen wechseln innerhalb desselben Dokuments', a
   await nav.getByRole('link', { name: 'Spiele', exact: true }).click()
   await catalog.getByRole('button', { name: 'In Entwicklung', exact: true }).click()
   await expect(catalog.getByRole('link')).toHaveCount(2)
-  await expect(catalog.getByRole('link', { name: 'MindSync' })).toBeVisible()
+  await expect(catalog.getByRole('link', { name: 'THESLIBBI', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Spielraum', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Privater Spielraum' })).toBeVisible()
   await nav.getByRole('link', { name: 'Spiele', exact: true }).click()
@@ -73,11 +73,11 @@ test('Xeri startet aus dem Katalog und akzeptiert einen Zug ohne Überlauf', asy
   }
 })
 
-test('MindSync zeigt zugängliche Beispielkarten und respektiert reduzierte Bewegung', async ({ page, isMobile }) => {
+test('THESLIBBI bietet eine private Lobby und zugängliche Kartenmotive', async ({ page, isMobile }) => {
   if (isMobile) await page.setViewportSize({ width: 320, height: 740 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('./#/spiele/mindsync')
-  await expect(page.getByRole('heading', { name: 'MindSync', exact: true })).toBeVisible()
+  await page.goto('./#/spiele/theslibbi')
+  await expect(page.getByRole('heading', { name: 'THESLIBBI', exact: true })).toBeVisible()
   await expect(page.getByText('In Entwicklung', { exact: true })).toBeVisible()
   const preview = page.getByRole('group', { name: 'Beispielkarten' })
   await expect(preview.getByRole('img', { name: 'Zahlenkarte 18' })).toBeVisible()
@@ -86,6 +86,11 @@ test('MindSync zeigt zugängliche Beispielkarten und respektiert reduzierte Bewe
   await expect(back).toBeVisible()
   await expect(back).toHaveText('')
   await expect(back).toHaveCSS('animation-name', 'none')
-  await expect(page.getByRole('button', { name: 'Privaten Raum erstellen' })).toHaveCount(0)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(back).toHaveCSS('animation-name', 'theslibbi-deal')
+  const lobby = page.getByRole('region', { name: 'Private Lobby' })
+  await expect(lobby.getByRole('button', { name: 'Privaten Raum erstellen' })).toBeVisible()
+  await expect(lobby.getByLabel('Spielerplätze').locator('option')).toHaveText(['2 Spieler', '3 Spieler', '4 Spieler'])
+  await expect(page.getByRole('button', { name: 'Partie starten' })).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })

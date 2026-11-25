@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 import { isCard } from '../vendor/xeri/game/engine.js'
 import type { Card } from '../vendor/xeri/game/engine.js'
-import { invitePattern, matchPattern, partyGames, seedPattern, validNickname, validSettings } from './online.ts'
+import { invitePattern, isPlayableGame, matchPattern, playableGames, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
 import { maxAuditEvents } from './game-match.ts'
 
 const object = v.strictObject
@@ -16,7 +16,7 @@ const match = v.pipe(v.string(), v.regex(matchPattern))
 const seed = v.pipe(v.string(), v.regex(seedPattern))
 const text = v.pipe(v.string(), v.minLength(1), v.maxLength(500))
 const statusText = v.pipe(v.string(), v.maxLength(240))
-const game = v.picklist(partyGames)
+const game = v.picklist(roomGames)
 const card = v.pipe(v.string(), v.check((value: string) => isCard(value)), v.transform((value) => value as Card))
 const cambioCard = v.union([card, v.picklist(['joker-1', 'joker-2', 'joker-3'])])
 const cards = v.pipe(v.array(card), v.maxLength(52))
@@ -79,7 +79,7 @@ const cambioView = v.pipe(object({
 
 const settings = v.pipe(object({ game, capacity: natural }), v.check(validSettings))
 const seat = object({ seat: index, player: v.nullable(player), bot: bool, ready: bool, online: bool })
-const round = v.pipe(object({ id: match, game, capacity: natural, humans: v.pipe(v.array(index), v.maxLength(6)) }), v.check((value) => {
+const round = v.pipe(object({ id: match, game: v.picklist(playableGames), capacity: natural, humans: v.pipe(v.array(index), v.maxLength(6)) }), v.check((value) => {
   return validSettings(value) && value.humans[0] === 0 &&
     value.humans.every((seat, i) => seat < value.capacity && (i === 0 || seat > value.humans[i - 1]!)) &&
     (value.humans.length === value.capacity || (value.game === 'xeri' && value.capacity === 4))
@@ -94,7 +94,9 @@ const snapshot = v.pipe(object({
 }), v.check((lobby) => {
   if (!validSettings(lobby) || lobby.seats.length !== lobby.capacity || !lobby.seats[lobby.self]?.player ||
     !lobby.seats.every((seat, index) => seat.seat === index && !(seat.player && seat.bot))) return false
+  if (lobby.game === 'theslibbi' && lobby.seats.some((seat) => seat.bot)) return false
   if (lobby.phase === 'open') return lobby.match === null && lobby.seeding === null && !lobby.xeri && !lobby.cambio
+  if (!isPlayableGame(lobby.game)) return false
   if (lobby.phase === 'seeding') return !!lobby.seeding && lobby.match === lobby.seeding.round.id && !lobby.xeri && !lobby.cambio
   if (!lobby.match || lobby.seeding) return false
   if (lobby.game === 'xeri') {

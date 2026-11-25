@@ -2,14 +2,17 @@ import type { Card, GameView } from '../vendor/xeri/game/engine.js'
 import type { CambioAction, CambioView } from '../src/games/ab6super6/engine.ts'
 
 export type Player = { id: string; name: string }
-export type OnlineGame = 'xeri' | 'ab6super6'
+export const playableGames = ['xeri', 'ab6super6'] as const
+export const roomGames = [...playableGames, 'theslibbi'] as const
+export type PlayableGame = typeof playableGames[number]
+export type OnlineGame = typeof roomGames[number]
 export type Seat = { seat: number; player: Player | null; bot: boolean; ready: boolean; online: boolean }
 export type Message = { id: number; from: Player; text: string; sentAt: number }
 export type RoomSettings = { game: OnlineGame; capacity: number }
 
 export type Round = {
   id: string
-  game: OnlineGame
+  game: PlayableGame
   capacity: number
   humans: number[]
 }
@@ -54,14 +57,17 @@ export type AuditStatus = 'idle' | 'checking' | 'verified' | 'single' | 'failed'
 export const invitePattern = /^[0-9a-f]{48}$/
 export const matchPattern = /^[0-9a-f]{32}$/
 export const seedPattern = /^[0-9a-f]{64}$/
-export const partyGames = ['xeri', 'ab6super6'] as const
-export const onlineNames = { xeri: 'Xeri (Ξερή)', ab6super6: 'ab6super6' } satisfies Record<OnlineGame, string>
-export const capacities = { xeri: [2, 4], ab6super6: [2, 3, 4, 5, 6] } satisfies Record<OnlineGame, number[]>
+export const onlineNames = { xeri: 'Xeri (Ξερή)', ab6super6: 'ab6super6', theslibbi: 'THESLIBBI' } satisfies Record<OnlineGame, string>
+export const capacities = { xeri: [2, 4], ab6super6: [2, 3, 4, 5, 6], theslibbi: [2, 3, 4] } satisfies Record<OnlineGame, number[]>
+
+export function isPlayableGame(game: OnlineGame): game is PlayableGame {
+  return playableGames.some((id) => id === game)
+}
 
 export function validNickname(name: string) {
   return name.length >= 1 && name.length <= 24 && name === name.trim() && !/[\p{Cc}\p{Cf}]/u.test(name)
 }
 
 export function validSettings({ game, capacity }: RoomSettings) {
-  return partyGames.includes(game) && capacities[game].includes(capacity)
+  return roomGames.includes(game) && capacities[game].includes(capacity)
 }

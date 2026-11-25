@@ -1,0 +1,40 @@
+.theslibbi-lobby-table {
+  background: #201c31;
+  border-color: #433955;
+}
+
+.theslibbi-table-intro {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: .4rem;
+  padding: .95rem 4.25rem .95rem 1rem;
+  border: 1px solid #5a4877;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at right, #4b3568, #282240 70%);
+}
+
+.theslibbi-table-intro h2 { margin-bottom: .3rem; }
+.theslibbi-table-intro p { color: #ddd2eb; font-size: .875rem; }
+
+.theslibbi-table-intro::before,
+.theslibbi-table-intro::after {
+  position: absolute;
+  z-index: -1;
+  inset: 50% 1.4rem auto auto;
+  width: 2.25rem;
+  aspect-ratio: 5 / 7;
+  border: 1px solid #b5a0d7;
+  border-radius: 5px;
+  background: #635185;
+  content: '';
+  transform: translateY(-50%) rotate(-16deg);
+}
+
+.theslibbi-table-intro::after {
+  right: 1rem;
+  background: repeating-linear-gradient(120deg, #8169a133 0 5px, #b5a0d748 5px 6px), #3d3059;
+  transform: translateY(-44%) rotate(11deg);
+}
+
+.theslibbi-table-ready { color: #dbd0ff; font-size: .875rem; }

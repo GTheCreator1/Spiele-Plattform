@@ -35,6 +35,68 @@ function seed(room: Room) {
   for (const seat of round.humans.slice(1)) room.contribute(seat, round.id, 'reveal', contribution(seat))
 }
 
+test('THESLIBBI lässt zwei bis vier Menschen in den Raum und behält den Sitz beim Wiedereinstieg', () => {
+  for (const capacity of [2, 3, 4]) {
+    const { room } = lobby('theslibbi', capacity)
+    for (let seat = 0; seat < capacity; seat++) {
+      const snapshot = room.snapshot(seat)
+      assert.equal(snapshot.self, seat)
+      assert.ok(snapshot.seats.every((member) => member.player && member.online && member.ready))
+      assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: snapshot }))
+    }
+    assert.throws(() => room.join(token(capacity), 'Zusätzlicher Gast'), /voll/)
+    const player = room.snapshot(1).seats[1]!.player
+    room.disconnect(1)
+    assert.equal(room.snapshot(0).seats[1]!.online, false)
+    assert.equal(room.join(token(1), 'Gast 1'), 1)
+    assert.deepEqual(room.snapshot(1).seats[1]!.player, player)
+    assert.equal(room.snapshot(1).seats[1]!.ready, true)
+  }
+  for (const capacity of [1, 5, 6]) {
+    const settings = { game: 'theslibbi' as const, capacity }
+    assert.throws(() => new Room(roomId, settings, 'Host', () => 0), /Wähle ein Spiel/)
+    assert.throws(() => parseAction({ type: 'lobby-settings', settings }))
+  }
+})
+
+test('THESLIBBI bleibt bei Start- und Bot-Anfragen eine Lobby ohne Spielzustand', () => {
+  const room = new Room(roomId, { game: 'xeri', capacity: 2 }, 'Host', () => 0)
+  const settings = { game: 'theslibbi' as const, capacity: 4 }
+  room.action(0, parseAction({ type: 'lobby-settings', settings }))
+  assert.throws(() => room.action(0, { type: 'lobby-bot', seat: 1, enabled: true }), /kein Bot/)
+  for (let seat = 1; seat < settings.capacity; seat++) {
+    room.join(token(seat), `Gast ${seat}`)
+    room.action(seat, { type: 'lobby-ready', ready: true })
+  }
+  const before = room.snapshot(0)
+  assert.throws(() => room.action(1, { type: 'lobby-start' }), /Nur wer/)
+  assert.throws(() => room.action(0, { type: 'lobby-start' }), /Lobby verfügbar/)
+  assert.deepEqual(room.snapshot(0), before)
+  assert.equal(before.phase, 'open')
+  assert.equal(before.match, null)
+  assert.equal(before.xeri, null)
+  assert.equal(before.cambio, null)
+  assert.equal(before.seeding, null)
+  assert.equal(room.proof(), null)
+})
+
+test('Wire-Prüfung verwirft Bot-Sitze und fremde Partiephasen für THESLIBBI', () => {
+  const room = new Room(roomId, { game: 'theslibbi', capacity: 2 }, 'Host', () => 0)
+  const open = room.snapshot(0)
+  const forgedSeats = open.seats.map((seat) => seat.player ? seat : { ...seat, bot: true, online: true, ready: true })
+  const snapshot = (lobby: unknown) => parse(fromHost, { type: 'snapshot', lobby })
+  assert.throws(() => snapshot({ ...open, seats: forgedSeats }))
+
+  const xeri = lobby('xeri', 2).room
+  xeri.action(0, { type: 'lobby-start' })
+  const seeding = xeri.snapshot(0)
+  assert.doesNotThrow(() => snapshot(seeding))
+  assert.throws(() => snapshot({ ...seeding, game: 'theslibbi' }))
+  assert.throws(() => snapshot({ ...seeding, seeding: {
+    ...seeding.seeding, round: { ...seeding.seeding!.round, game: 'theslibbi' },
+  } }))
+})
+
 test('Tausende sichere Fisher–Yates-Mischungen behalten alle 52 beziehungsweise 55 Karten', () => {
   for (const deck of [DECK, cambioDeck]) {
     const permutations = new Set<string>()

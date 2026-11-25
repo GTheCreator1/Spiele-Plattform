@@ -8,6 +8,67 @@ function messageBox(page: Page) {
   return page.getByRole('textbox', { name: 'Nachricht', exact: true })
 }
 
+test('THESLIBBI synchronisiert eine private Vierer-Lobby, Chat und Wiedereinstieg', async ({ browser, baseURL }, info) => {
+  const secondBrowser = await chromium.launch(info.project.use.launchOptions)
+  const contexts = await Promise.all([
+    browser.newContext({ baseURL }),
+    secondBrowser.newContext({ ...devices['iPhone 13'], baseURL }),
+    secondBrowser.newContext({ ...devices['iPad (gen 7)'], baseURL }),
+    browser.newContext({ baseURL }),
+  ])
+  try {
+    const [hostContext, phoneContext, tabletContext, guestContext] = contexts
+    const [host, phone, tablet, guest] = await Promise.all([
+      hostContext.newPage(), phoneContext.newPage(), tabletContext.newPage(), guestContext.newPage(),
+    ])
+    const link = await createRoom(host, 'Mika', 'theslibbi', 4)
+    await joinRoom(phone, 'Kim', link)
+    await joinRoom(tablet, 'Toni', link)
+    await joinRoom(guest, 'Robin', link)
+
+    const ready = 'Alle Plätze sind verbunden und bereit.'
+    const guests = [phone, tablet, guest]
+    for (const page of [host, ...guests]) {
+      await expect(page.getByRole('heading', { name: 'THESLIBBI', exact: true })).toBeVisible()
+      await expect(page.getByText('Privater Raum · 4/4 Plätze')).toBeVisible()
+      await expect(page.getByText(ready, { exact: true })).toBeVisible()
+      await expect(page.locator('.member-row strong')).toHaveText(['Mika', 'Kim', 'Toni', 'Robin'])
+      await expect(page.getByRole('button', { name: 'Partie starten', exact: true })).toHaveCount(0)
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+
+    await Promise.all(guests.map((page) => page.getByRole('button', { name: 'Warten', exact: true }).click()))
+    await expect(host.locator('.member-row').getByText('Wartet', { exact: true })).toHaveCount(3)
+    await Promise.all(guests.map((page) => page.getByRole('button', { name: 'Bereit', exact: true }).click()))
+    await expect(host.getByText(ready, { exact: true })).toBeVisible()
+
+    await host.getByRole('button', { name: 'Öffnen', exact: true }).click()
+    await messageBox(host).fill('Alle da?')
+    await host.getByRole('button', { name: 'Senden', exact: true }).click()
+    await phone.getByRole('button', { name: 'Öffnen (1)', exact: true }).click()
+    await expect(phone.getByRole('list', { name: 'Chatnachrichten' }).getByText('Alle da?')).toBeVisible()
+
+    await guestContext.setOffline(true)
+    const robinOn = (page: Page) => page.locator('.member-row').filter({ hasText: 'Robin' })
+    for (const page of [host, tablet]) {
+      await expect(robinOn(page).getByText('Getrennt', { exact: true })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText(ready, { exact: true })).toHaveCount(0)
+    }
+    await guestContext.setOffline(false)
+    await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 20_000 })
+    await expect(robinOn(host).getByText('Bereit', { exact: true })).toBeVisible()
+    await expect(tablet.getByText(ready, { exact: true })).toBeVisible()
+    await guest.getByRole('button', { name: 'Raum verlassen', exact: true }).click()
+    await expect(host.getByText('Privater Raum · 3/4 Plätze')).toBeVisible()
+    await expect(phone.getByText('Freier Platz', { exact: true })).toHaveCount(1)
+    await host.getByRole('button', { name: 'Raum verlassen', exact: true }).click()
+    await expect(phone.getByText('Der Host hat den Raum geschlossen.')).toBeVisible()
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
+    await secondBrowser.close()
+  }
+})
+
 test('Einladungslink, separater Chromium, Chat, Reconnect und zwei vollständige Xeri-Modi', async ({ browser, baseURL }, info) => {
   const second = await chromium.launch(info.project.use.launchOptions)
   const hostContext = await browser.newContext({ baseURL, reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] })

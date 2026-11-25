@@ -116,7 +116,7 @@
   border-radius: 21px;
 }
 .detail-banner-luegen { background: #27121b; }
-.detail-banner-mindsync { background: #18172b; }
+.detail-banner-theslibbi { background: #18172b; }
 .detail-banner-ab6super6 { background: #261917; }
 .detail-banner > img { position: absolute; inset: 0 0 0 auto; z-index: -1; width: 75%; height: 100%; object-fit: cover; object-position: center 54%; }
 .detail-banner::after { position: absolute; z-index: -1; content: ""; inset: 0; background: linear-gradient(90deg, #10131bef 9%, #10131be0 32%, #10131b1c 82%); }

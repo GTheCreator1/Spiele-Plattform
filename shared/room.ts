@@ -1,6 +1,6 @@
 import { applyMatchEvent, commitSecret, matchFinished, maxAuditEvents, newMatch, privateViews, seedFor } from './game-match.ts'
 import type { Commitment, Contribution, GameMove, Lobby, MatchEvent, Message, OnlineAction, Player, ProofStart, RoomSettings, Round } from './online.ts'
-import { seedPattern, validNickname, validSettings } from './online.ts'
+import { isPlayableGame, seedPattern, validNickname, validSettings } from './online.ts'
 import { digest, randomHex } from './random.ts'
 
 type Occupant = {
@@ -161,10 +161,12 @@ export class Room {
   }
 
   private start() {
+    const { game, capacity } = this.settings
+    need(isPlayableGame(game), 'Für THESLIBBI ist derzeit die Lobby verfügbar.')
     need(this.phase === 'open' && this.seated() && this.seats.every((seat) => seat?.ready),
       'Alle Plätze müssen verbunden und bereit sein.')
     const round = {
-      id: randomHex(16), ...this.settings,
+      id: randomHex(16), game, capacity,
       humans: this.seats.flatMap((seat, index) => seat?.player ? [index] : []),
     }
     const secret = randomHex(32)

@@ -12,9 +12,9 @@ Die Entwicklung wurde am 25. November 2026 ab Commit `cb970fd` wieder aufgenomme
 | Chat und Wiederverbindung | Flüchtiger Raumchat, Größen- und Frequenzgrenzen, zuggebundene Aktions-IDs und Wiedereinstieg auf dem ursprünglichen Gast-Sitz. Der Host-Tab hält die Partie im Arbeitsspeicher. |
 | Kartenzufall | Gleichverteilte Indexauswahl im Fisher–Yates-Algorithmus. Gemeinsame Zufallszusagen für Online-Partien und Nachrechnung nach Spielende. Gäste erhalten nur ihre erlaubte Sicht. Der Host-Browser kann intern das gesamte Deck lesen. |
 | Lügen | Kachel und Seite mit „Mach ich bald“ und „Zurück zum Hauptmenü“. |
-| MindSync | Einheitlicher Status „In Entwicklung“. Die gewünschte Level- und Belohnungsmechanik und Schutzrechtsfragen sind dokumentiert. |
+| THESLIBBI | Private PeerJS-Lobby für zwei bis vier Personen mit Spitznamen, Einladung, Bereitschaft, Lobbychat und Wiedereinstieg. Eigene Kartenmotive und Animation auf der Detailseite. Spielmodus, Level, Impulse und Wertung sind offen. |
 
-[Architektur](architektur.md) · [PeerJS, Sicherheit und GitHub Pages](backend-entscheidung.md) · [ab6super6-Hausregeln](ab6super6-regeln.md) · [MindSync](mindsync-regeln.md)
+[Architektur](architektur.md) · [PeerJS, Sicherheit und GitHub Pages](backend-entscheidung.md) · [ab6super6-Hausregeln](ab6super6-regeln.md) · [THESLIBBI](theslibbi-regeln.md)
 
 ## Überprüfte Fehler und Korrekturen
 
@@ -26,14 +26,16 @@ Die Entwicklung wurde am 25. November 2026 ab Commit `cb970fd` wieder aufgenomme
 
 ## Prüfungen
 
+Der Prüfstand für THESLIBBI liegt auf `development/theslibbi`. Die ursprüngliche Xeri-Referenz und die ab6super6-Engine entsprechen weiterhin `main`.
+
 | Prüfumfang | Ergebnis |
 | --- | --- |
-| Automatisiert · Regeln, Raumzustand, Sicherheit | `npm test` bestand mit **43 Tests**. Darunter sind 4.000 vollständige Mischvorgänge, 55.000 Zufallsindex-Prüfwerte, 120 automatisch gespielte vollständige Xeri-Partien aus der unveränderten Referenz, Ablehnung alter oder ungültiger Nachrichten, private Sitzprojektionen und Zufallsbeiträge. ab6super6 deckt Effekte in Reihenfolge, Klopfen, Gleichstand, Neumischen, fehlende Strafkarten nach Ablauf des Schlussfensters und die Erholung bei vollständig erschöpftem Stapel während der Partie ab. |
-| Automatisiert · Produktionsbuild | **9 Chromium-Tests** bestanden. Sie prüfen Desktop- und iPhone-Viewport, Spielansichten und Platzhalter, Fragmentnavigation, Solo-Xeri bis zur Wertung, Größenwechsel, reduzierte Bewegung und Offline-Start. |
-| Automatisiert · echte WebRTC-Datenkanäle lokal | **4 Szenarien** bestanden über lokalen TURN/TCP. Enthalten sind Xeri-Duell und Teamspiel mit Bots in separaten Browser-Prozessen, Vierer-Xeri mit vier Menschen, ein Signalisierungs- und ein Host-Netzausfall, Gast-Neuladen, Verlassen und Chat. ab6super6 wurde mit sechs Personen bis zur geprüften Endwertung und mit drei Personen bei zwei fast gleichzeitigen Würfen getestet. Die Oberfläche wurde bei 320 und 390 Pixeln Breite und im Querformat geprüft. |
-| Automatisiert · weitere Netzpfade | Die verwaltete Chromium-Richtlinie begrenzt lokale Direkt-ICE-Verbindungen und der Entwicklungsproxy sperrt den öffentlichen PeerJS-Endpunkt. GitHub Actions führt die Direkt-Variante und einen Produktionscheck über den öffentlichen Dienst aus. Der Workflow zeigt deren jeweilige Ergebnisse. |
+| Automatisiert · Regeln, Raumzustand, Sicherheit | `npm test` bestand mit **46 Tests**. Darunter sind 4.000 vollständige Mischvorgänge, 55.000 Zufallsindex-Prüfwerte, 120 automatisch gespielte vollständige Xeri-Partien aus der Referenz, private Sitzprojektionen sowie Szenarien für ab6super6 mit chronologischen Effekten, Klopfen, Gleichstand, Neumischen und erschöpftem Stapel. THESLIBBI deckt die Lobbygrößen zwei, drei und vier, reservierte Sitze beim Wiedereinstieg und die Ablehnung von Bots, Spielstarts und unzulässigen Spielzuständen ab. |
+| Automatisiert · Produktionsbuild | `npm run build` und **11 Chromium-Tests** bestanden. Sie prüfen Desktop- und iPhone-Viewport, Spielansichten und Platzhalter, Fragmentnavigation, Solo-Xeri bis zur Wertung, Größenwechsel und Offline-Start. Für THESLIBBI prüfen sie Raumformular, Kartenmotive und reduzierte Bewegung. |
+| Automatisiert · echte WebRTC-Datenkanäle lokal | **5 Szenarien** bestanden über lokalen TURN/TCP. Sie decken Xeri-Duell, Teamspiel mit Bots, Vierer-Xeri, Signalisierungsausfall und Verbindungsabbrüche ab. Bei ab6super6 prüfen sie die Schlussrunde bis zur Wertung mit sechs Mitspielern und parallele Reinwürfe. Die THESLIBBI-Vierer-Lobby wurde mit zwei Chromium-Prozessen, emulierten iPhone- und iPad-Ansichten, Chat, gleichzeitigen Bereitschaftswechseln, Wiederverbindung und Schließen des Raums geprüft. |
+| Weitere Netzpfade | Der lokale Direkttest scheiterte beim ersten Gastbeitritt. Das verwaltete Chromium sperrt UDP ohne Proxy. Der Produktionscheck über den öffentlichen PeerJS-Dienst scheiterte bereits beim Öffnen des Raums. Der Entwicklungsproxy beantwortete den Zugriff auf den Signalisierungsendpunkt mit HTTP 403. |
 | Abhängigkeiten | `npm audit --audit-level=high` und `npm audit --omit=dev --audit-level=high` meldeten keine bekannten Schwachstellen. |
-| Manuell und über getrennte Netze | Kein Test auf physischen Mobilgeräten, in Safari oder Firefox und keine vollständige Partie von zwei unabhängigen Internetanschlüssen. Hintergrunddrosselung und längerer Lastbetrieb sind ungeprüft. |
+| Offene Prüfungen | Physische Mobilgeräte, Safari, Firefox, zwei unabhängige Internetanschlüsse, Hintergrunddrosselung und längerer Lastbetrieb. Für THESLIBBI fehlen Spielpartien und Regeltests für den Spielmodus. |
 
 [Build, direkte Verbindungen, PeerJS und Pages im GitHub-Workflow](https://github.com/GTheCreator1/Spiele-Plattform/actions/workflows/pages.yml)
 

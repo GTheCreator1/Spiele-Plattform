@@ -11,6 +11,7 @@ import { useOnline } from '../../platform/online'
 import { RoomFields, RoomForm } from './RoomForm'
 import { useCommand } from './useCommand'
 import '../../styles/community.css'
+import '../../games/theslibbi/theslibbi-lobby.css'
 
 const checks: Record<Exclude<AuditStatus, 'idle'>, string> = {
   checking: 'Die Endwertung wird nachgerechnet …',
@@ -71,7 +72,7 @@ function JoinRoom({ invite }: { invite: string }) {
         {(command.error || autoError) && <p role="alert" className="inline-error">{command.error || autoError}</p>}
         <button className="button button-primary" disabled={opening || command.pending}>Raum beitreten</button>
       </form>
-      <p className="muted">Der Host-Browser verwaltet die vollständige Partie einschließlich verdeckter Karten.</p>
+      <p className="muted">Bei laufenden Partien verwaltet der Host-Browser auch die verdeckten Karten.</p>
       <Link className="text-link" to="/">Zurück zum Hauptmenü</Link>
     </div>
   )
@@ -99,7 +100,8 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
   )
   const self = lobby.seats[lobby.self]
   const allPresent = lobby.seats.every((seat) => seat.online)
-  const canStart = allPresent && lobby.seats.every((seat) => seat.ready)
+  const allReady = allPresent && lobby.seats.every((seat) => seat.ready)
+  const theslibbi = lobby.game === 'theslibbi'
   const occupied = lobby.seats.filter((seat) => seat.bot || seat.player).length
   const busy = command.pending || !room.connected
   const turnBlocked = busy || !allPresent
@@ -121,8 +123,13 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
       <div className="lobby-layout">
         <div className="lobby-main">
           {(lobby.phase === 'open' || lobby.phase === 'seeding') ? (
-            <section className="surface settings-panel">
-              <h2>Spielplätze</h2>
+            <section className={theslibbi ? 'surface settings-panel theslibbi-lobby-table' : 'surface settings-panel'}>
+              {theslibbi ? (
+                <header className="theslibbi-table-intro">
+                  <h2>Spielplätze</h2>
+                  <p>Die Partie ist noch in Entwicklung.</p>
+                </header>
+              ) : <h2>Spielplätze</h2>}
               {lobby.seats.map((seat) => (
                 <div className="member-row" key={seat.seat}>
                   <div>
@@ -146,7 +153,8 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               ) : (
                 <div className="online-actions">
                   {self && <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-ready', ready: !self.ready })}>{self.ready ? 'Warten' : 'Bereit'}</button>}
-                  {room.host && <button className="button button-primary" disabled={busy || !canStart} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
+                  {room.host && !theslibbi && <button className="button button-primary" disabled={busy || !allReady} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
+                  {theslibbi && allReady && room.connected && <p className="theslibbi-table-ready">Alle Plätze sind verbunden und bereit.</p>}
                 </div>
               )}
             </section>
@@ -171,7 +179,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               </fieldset>
             </section>
           )}
-          <LobbyChat key={lobby.id} messages={room.messages} live={room.connected} />
+          <LobbyChat key={lobby.id} messages={room.messages} live={room.connected} title={theslibbi ? 'Lobbychat' : undefined} />
         </aside>
       </div>
     </div>
@@ -213,7 +221,7 @@ function Invitation({ invite }: { invite: string }) {
   )
 }
 
-function LobbyChat({ messages, live }: { messages: Message[]; live: boolean }) {
+function LobbyChat({ messages, live, title = 'Ingame-Chat' }: { messages: Message[]; live: boolean; title?: string }) {
   const { act } = useOnline()
   const command = useCommand()
   const [message, setMessage] = useState('')
@@ -231,7 +239,7 @@ function LobbyChat({ messages, live }: { messages: Message[]; live: boolean }) {
   return (
     <section className="surface settings-panel lobby-chat">
       <div className="dialog-heading">
-        <h2>Ingame-Chat</h2>
+        <h2>{title}</h2>
         <button className="button button-quiet" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Minimieren' : unread ? `Öffnen (${unread})` : 'Öffnen'}</button>
       </div>
       {open && <>

@@ -1,10 +1,10 @@
 # Stichrunde · Spiele-Plattform
 
-Stichrunde ist ein Kartenspielraum für Freundesgruppen. Xeri ist gegen den Computer oder online im Duell und im Team spielbar. ab6super6 unterstützt zwei bis sechs Mitspieler. Lügen zeigt „Mach ich bald“. MindSync trägt den Status „In Entwicklung“.
+Stichrunde ist ein Kartenspielraum für Freundesgruppen. Xeri ist gegen den Computer oder online im Duell und im Team spielbar. ab6super6 unterstützt zwei bis sechs Mitspieler. THESLIBBI bietet eine private Lobby für zwei bis vier Personen. Der Spielmodus ist in Entwicklung. Lügen zeigt „Mach ich bald“.
 
 ## Mit Freunden spielen
 
-Wähle ein Spiel, gib deinen Spitznamen ein und erstelle einen privaten Raum. Teile den Einladungslink mit deiner Runde. Alle Gäste geben ihren Spitznamen ein und bestätigen ihre Bereitschaft. Der Host startet die Partie und lässt den Gastgeber-Tab geöffnet. Der Host-Browser verwaltet das vollständige Deck und übermittelt Gästen nur die erlaubte Kartenansicht. [Betrieb, Kosten und Vertrauensmodell](docs/backend-entscheidung.md)
+Wähle ein Spiel, gib deinen Spitznamen ein und erstelle einen privaten Raum. Teile den Einladungslink mit deiner Runde. Alle Gäste geben ihren Spitznamen ein und bestätigen ihre Bereitschaft. Der Host lässt seinen Tab geöffnet. Bei Xeri und ab6super6 startet der Host die Partie. Sein Browser verwaltet das vollständige Deck und übermittelt Gästen nur die erlaubte Kartenansicht. [Betrieb, Kosten und Vertrauensmodell](docs/backend-entscheidung.md)
 
 ## Lokal starten und prüfen
 
@@ -43,6 +43,6 @@ GitHub Actions prüft und veröffentlicht den Branch `main`, sobald **GitHub Act
 - [Entwicklungsstand und Prüfprotokoll](docs/entwicklungsstand.md)
 - [Architektur und Xeri-Referenz](docs/architektur.md)
 - [ab6super6-Hausregeln](docs/ab6super6-regeln.md)
-- [MindSync-Spezifikationsstand](docs/mindsync-regeln.md)
+- [THESLIBBI-Lobby, Regelstand und Schutzrechtsprüfung](docs/theslibbi-regeln.md)
 
 Die Titelbilder sind für Stichrunde erstellt. DM Sans wird lokal geladen. [SIL Open Font License](src/assets/dm-sans-OFL.txt)

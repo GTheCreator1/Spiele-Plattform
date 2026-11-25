@@ -1,7 +1,8 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import type { OnlineGame } from '../../shared/online'
 
-export async function createRoom(host: Page, name: string, game: 'xeri' | 'ab6super6', seats: number) {
+export async function createRoom(host: Page, name: string, game: OnlineGame, seats: number) {
   await host.goto(`./#/spiele/${game}`)
   await host.getByLabel('Spitzname').fill(name)
   await host.getByLabel('Spielerplätze').selectOption(String(seats))

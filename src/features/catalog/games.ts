@@ -1,9 +1,9 @@
 import ab6super6 from '../../assets/covers/ab6super6.webp'
 import luegen from '../../assets/covers/luegen.webp'
-import mindsync from '../../assets/covers/mindsync.webp'
+import theslibbi from '../../assets/covers/theslibbi.webp'
 import xeri from '../../assets/covers/xeri.webp'
 
-export type GameId = 'xeri' | 'luegen' | 'mindsync' | 'ab6super6'
+export type GameId = 'xeri' | 'luegen' | 'theslibbi' | 'ab6super6'
 
 export type Game = {
   id: GameId
@@ -46,17 +46,14 @@ export const games: Game[] = [
     ],
   },
   {
-    id: 'mindsync',
-    name: 'MindSync',
+    id: 'theslibbi',
+    name: 'THESLIBBI',
     category: 'Kooperation',
-    description: 'Gemeinsam Zahlenkarten aufsteigend ablegen und den Moment richtig einschätzen.',
-    cover: mindsync,
+    description: 'Triff dich mit deiner Runde in einer privaten Lobby.',
+    cover: theslibbi,
     available: false,
-    players: '2–4 Spieler',
-    notes: [
-      'Das Team legt Zahlenkarten gemeinsam aufsteigend ab. Es gibt keine feste Zugreihenfolge.',
-      'Während eines aktiven Levels bleiben die Hände geheim. Der Chat ist für diese Spielphase gesperrt, sobald MindSync verfügbar ist.',
-    ],
+    players: 'Private Lobby · 2–4 Personen',
+    notes: [],
   },
   {
     id: 'ab6super6',
