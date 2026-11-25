@@ -21,13 +21,15 @@ Die Effekte sind optional und laufen in der Reihenfolge der Ablagen. Ausgewählt
 
 ## Reinwerfen und Strafkarten
 
-Passende eigene oder fremde Karten dürfen bis zwei Sekunden nach dem serverseitig bestätigten Ziehvorgang des nächsten Spielers eingeworfen werden. Das Fenster öffnet bei der regulären Ablage. Reinwürfe ändern gegebenenfalls die sichtbare Vergleichskarte. Sie verschieben die Frist nicht. Nach der letzten regulären Ablage der Schlussrunde beginnt das letzte Fenster von zwei Sekunden direkt mit dieser Ablage. Gleichzeitige Aktionen verarbeitet der Server einzeln in der verbindlichen Reihenfolge.
+Passende eigene oder fremde Karten dürfen bis zwei Sekunden nach dem von der Spielinstanz bestätigten Ziehvorgang des nächsten Spielers eingeworfen werden. Das Fenster öffnet bei der regulären Ablage. Reinwürfe ändern gegebenenfalls die sichtbare Vergleichskarte. Sie verschieben die Frist nicht. Nach der letzten regulären Ablage der Schlussrunde beginnt das letzte Fenster von zwei Sekunden direkt mit dieser Ablage. Gleichzeitige Aktionen verarbeitet der Host-Browser als Spielinstanz einzeln in der verbindlichen Reihenfolge.
 
 - Passende eigene Karte entfernen und gegebenenfalls ihren Spezialeffekt anstellen.
 - Passende fremde Karte entfernen, dem Besitzer zwei verdeckte Strafkarten geben und gegebenenfalls den Effekt für die handelnde Person anstellen.
 - Falsche Karte offen liegen lassen, der handelnden Person zwei verdeckte Strafkarten geben. Für die falsch geworfene Karte entfällt der Spezialeffekt.
 
-Der Server mischt den Ablagestapel bei Bedarf neu. Die oberste offene Karte bleibt liegen. Fehlende Strafkarten werden als ausstehende Menge in Vergabereihenfolge gespeichert und ausgegeben, sobald Karten verfügbar sind. Bleiben nach letzter Reaktionsfrist und letzten Effekten Strafkarten offen, endet die Partie mit regulärer Wertung der tatsächlich ausgeteilten Karten. Die Ergebnisanzeige nennt die verbleibende Anzahl. Die Kartenmenge bleibt 55.
+Die Spielinstanz mischt den Ablagestapel bei Bedarf neu. Die oberste offene Karte bleibt liegen. Fehlende Strafkarten werden als ausstehende Menge in Vergabereihenfolge gespeichert und ausgegeben, sobald Karten verfügbar sind. Bleiben nach letzter Reaktionsfrist und letzten Effekten Strafkarten offen, endet die Partie mit regulärer Wertung der tatsächlich ausgeteilten Karten. Die Ergebnisanzeige nennt die verbleibende Anzahl. Die Kartenmenge bleibt 55.
+
+Wenn alle übrigen Karten in den Auslagen liegen, ist Ziehen vorübergehend gesperrt. Ein passender eigener Reinwurf macht die bisherige oberste Ablage zum Nachmischen verfügbar. Offene Strafkarten werden zuerst nachgereicht. Das offene Reinwurffenster endet wie sonst zwei Sekunden nach dem erfolgreichen Ziehen. Der Tisch zeigt an, wenn es vorübergehend keine ziehbare Karte gibt.
 
 ## Klopfen und Endwertung
 

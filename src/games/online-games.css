@@ -16,7 +16,7 @@
   border-radius: 17px;
   background: radial-gradient(ellipse at top, #493128, #251c24 80%);
 }
-.cambio-table-top { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1.25rem; }
+.cambio-table-top { display: grid; grid-template-columns: repeat(3, minmax(var(--card-width), max-content)); justify-content: center; align-items: center; gap: clamp(.55rem, 3.4vw, 1.25rem); }
 .cambio-status { text-align: center; font-weight: 700; }
 .cambio-actions { justify-content: center; }
 .cambio-effect { display: grid; justify-items: center; gap: .5rem; text-align: center; padding: .75rem; border: 1px solid #805c4d; border-radius: 11px; background: #2a2535; }

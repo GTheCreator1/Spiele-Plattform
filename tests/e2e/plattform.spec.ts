@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('Katalog und soziale Ansichten wechseln innerhalb desselben Dokuments', async ({ page }) => {
+test('Katalog, Raum und Einstellungen wechseln innerhalb desselben Dokuments', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByRole('heading', { name: 'Willkommen am Spieltisch.' })).toBeVisible()
   await page.locator('html').evaluate((element) => { element.dataset.spaTest = 'offen' })
@@ -11,18 +11,18 @@ test('Katalog und soziale Ansichten wechseln innerhalb desselben Dokuments', asy
   const catalog = page.getByRole('region', { name: 'Spielebibliothek' })
   await expect(catalog.getByRole('link')).toHaveCount(4)
   await catalog.getByRole('button', { name: 'Spielbar', exact: true }).click()
-  await expect(catalog.getByRole('link')).toHaveCount(1)
-  await catalog.getByRole('button', { name: 'In Entwicklung', exact: true }).click()
-  await expect(catalog.getByRole('link')).toHaveCount(3)
+  await expect(catalog.getByRole('link')).toHaveCount(2)
+  await expect(catalog.getByRole('link', { name: 'ab6super6' })).toBeVisible()
   await catalog.getByRole('link', { name: 'ab6super6' }).click()
   await expect(page.getByRole('heading', { name: 'ab6super6', level: 1 })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Partie starten' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Privaten Raum erstellen' })).toBeVisible()
 
-  await nav.getByRole('link', { name: 'Freunde' }).click()
-  await page.getByRole('button', { name: 'Anfragen' }).click()
-  await expect(page.getByRole('heading', { name: 'Freundschaftsanfragen' })).toBeVisible()
-  await nav.getByRole('link', { name: 'Nachrichten' }).click()
-  await expect(page.getByRole('heading', { name: 'Ingame-Chat' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Spiele', exact: true }).click()
+  await catalog.getByRole('button', { name: 'In Entwicklung', exact: true }).click()
+  await expect(catalog.getByRole('link')).toHaveCount(2)
+  await expect(catalog.getByRole('link', { name: 'MindSync' })).toBeVisible()
+  await page.getByRole('link', { name: 'Spielraum', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Privater Spielraum' })).toBeVisible()
   await nav.getByRole('link', { name: 'Spiele', exact: true }).click()
   await page.getByRole('link', { name: 'Lügen', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Mach ich bald', exact: true })).toBeVisible()
@@ -31,9 +31,9 @@ test('Katalog und soziale Ansichten wechseln innerhalb desselben Dokuments', asy
   await expect(page.locator('html')).toHaveAttribute('data-spa-test', 'offen')
 })
 
-test('Einladungsfenster und Geräteeinstellungen funktionieren bei direktem Aufruf', async ({ page }) => {
-  await page.goto('./#/profil')
-  await expect(page.getByRole('heading', { name: 'Profil und Einstellungen' })).toBeVisible()
+test('Ungültige Einladungslinks und direkte Geräteeinstellungen', async ({ page }) => {
+  await page.goto('./#/einstellungen')
+  await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
   const motion = page.getByRole('switch', { name: 'Animationen' })
   const sound = page.getByRole('switch', { name: 'Soundeffekte' })
   await expect(motion).toBeChecked()
@@ -44,13 +44,9 @@ test('Einladungsfenster und Geräteeinstellungen funktionieren bei direktem Aufr
   await expect(sound).not.toBeChecked()
   await expect(page.locator('.app-shell')).toHaveAttribute('data-motion', 'off')
 
-  const invitations = page.getByRole('button', { name: 'Einladungen', exact: true })
-  await invitations.click()
-  const dialog = page.getByRole('dialog', { name: 'Einladungen' })
-  await expect(dialog.getByRole('heading', { name: 'In Entwicklung' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(dialog).not.toBeVisible()
-  await expect(invitations).toBeFocused()
+  await page.goto('./#/lobby/ungueltig')
+  await expect(page.getByRole('heading', { name: 'Einladungslink ungültig' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Raum beitreten' })).toHaveCount(0)
 })
 
 test('Xeri startet aus dem Katalog und akzeptiert einen Zug ohne Überlauf', async ({ page, isMobile }) => {

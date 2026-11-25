@@ -1,8 +1,12 @@
 # Stichrunde · Spiele-Plattform
 
-Stichrunde ist der Kartenspielraum für eine Freundesgruppe. Xeri ist lokal gegen den Computer spielbar. Mit dem Cloudflare-Worker kommen Xeri online, ab6super6, Benutzerkonten, Freundschaften, Einladungen und private Lobby-Chats hinzu. Lügen zeigt „Mach ich bald“. MindSync ist im Katalog vorgemerkt.
+Stichrunde ist ein Kartenspielraum für Freundesgruppen. Xeri ist gegen den Computer oder online im Duell und im Team spielbar. ab6super6 unterstützt zwei bis sechs Mitspieler. Lügen zeigt „Mach ich bald“. MindSync trägt den Status „In Entwicklung“.
 
-## Lokal starten
+## Mit Freunden spielen
+
+Wähle ein Spiel, gib deinen Spitznamen ein und erstelle einen privaten Raum. Teile den Einladungslink mit deiner Runde. Alle Gäste geben ihren Spitznamen ein und bestätigen ihre Bereitschaft. Der Host startet die Partie und lässt den Gastgeber-Tab geöffnet. Der Host-Browser verwaltet das vollständige Deck und übermittelt Gästen nur die erlaubte Kartenansicht. [Betrieb, Kosten und Vertrauensmodell](docs/backend-entscheidung.md)
+
+## Lokal starten und prüfen
 
 Node.js 24 und npm werden empfohlen. Der Mindeststand ist Node.js 22.12.
 
@@ -11,23 +15,7 @@ npm ci
 npm run dev
 ```
 
-Vite zeigt die lokale Adresse mit dem Pfad `/Spiele-Plattform/` an. Die Geräteeinstellungen für Sound und Animation bleiben nach dem Neuladen erhalten. Die aktuelle Solo-Partie gilt für die geöffnete Tischansicht.
-
-## Lokal mit Online-Funktionen starten
-
-Starte das Backend und das Frontend in zwei Terminals. Die folgenden Variablen gelten für diese lokale Entwicklungsinstanz.
-
-```sh
-npm run dev:api -- --port 8787 --var APP_URL:http://localhost:5173/Spiele-Plattform/ --var REQUIRE_INVITE:false
-```
-
-```sh
-VITE_API_URL=http://127.0.0.1:8787 npm run dev -- --port 5173 --strictPort
-```
-
-Öffne [die lokale Plattform](http://localhost:5173/Spiele-Plattform/) und erstelle ein Konto. Ein privates Fenster bietet eine getrennte zweite Sitzung. In Produktion ist ein eigenes Worker-Secret für die Registrierung vorgesehen.
-
-## Prüfen
+Vite zeigt die Adresse mit dem Pfad `/Spiele-Plattform/` an. Online-Räume verwenden standardmäßig den öffentlichen PeerJS-Dienst.
 
 ```sh
 npm test
@@ -37,18 +25,24 @@ npm run test:e2e
 npm run test:online
 ```
 
-`npm test` führt die Originalregressionen von Xeri und die Regeltests für ab6super6 aus. `npm run test:e2e` prüft den lokalen Produktionsbuild in Desktop- und mobilen Chromium-Ansichten. `npm run test:online` startet Vite und einen lokalen Cloudflare-Worker mit getrennten Browserprofilen. Mit `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` lässt sich eine installierte Chromium-Binärdatei auswählen.
+`npm test` führt Regel-, Raum- und Transporttests aus. `npm run test:e2e` prüft den Produktionsbuild. `npm run test:online` startet eine lokale PeerJS-Signalisierung und einen lokalen TURN/TCP-Relay für echte Browserdatenkanäle. Der Test-Relay bindet nur Loopback-Adressen und verwendet pro Start zufällige Zugangsdaten. Mit `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` lässt sich eine installierte Chromium-Binärdatei auswählen.
 
-## GitHub Pages
+```sh
+STICHRUNDE_TEST_DIRECT=1 npm run test:online
+STICHRUNDE_TEST_PUBLIC=1 npm run test:online
+```
 
-Der Workflow baut, testet und veröffentlicht den Produktionsbuild von `main` über GitHub Pages. Dazu muss in **Settings → Pages** die Quelle **GitHub Actions** ausgewählt sein. Die öffentliche Worker-Adresse wird als Repository-Variable `VITE_API_URL` eingebunden. Interne Ansichten verwenden URL-Fragmente, damit sie beim Neuladen dieselbe Einstiegsdatei nutzen. Nach erfolgreicher Zwischenspeicherung kann Xeri offline starten. [Pages-Einstellungen](https://github.com/GTheCreator1/Spiele-Plattform/settings/pages)
+Der erste Befehl testet direkte WebRTC-Verbindungen im lokalen Netz und benötigt entsprechende ICE-Unterstützung des Browser-Netzwerks. Der zweite testet den gebauten Produktionsstand über den öffentlichen PeerJS-Dienst. Bei Bedarf kann hierfür mit `STICHRUNDE_TEST_URL` die vollständige GitHub-Pages-Adresse samt abschließendem Schrägstrich angegeben werden.
 
-## Projektstand
+## Veröffentlichung
 
-- [Entwicklungsbericht und offene Abnahme](docs/entwicklungsstand.md)
-- [Architektur und übernommene Xeri-Komponenten](docs/architektur.md)
-- [Cloudflare-Free-Tier und Einrichtung](docs/backend-entscheidung.md)
+GitHub Actions prüft und veröffentlicht den Branch `main`, sobald **GitHub Actions** als Pages-Quelle im Repository eingerichtet ist. Der Workflow prüft nach einem erfolgreichen Deploy die ausgelieferte HTML-Datei. [Einmalige Pages-Einrichtung](docs/backend-entscheidung.md#github-pages-einrichten) · [Aktuelle Workflow-Ergebnisse](https://github.com/GTheCreator1/Spiele-Plattform/actions/workflows/pages.yml)
+
+## Projektdokumentation
+
+- [Entwicklungsstand und Prüfprotokoll](docs/entwicklungsstand.md)
+- [Architektur und Xeri-Referenz](docs/architektur.md)
 - [ab6super6-Hausregeln](docs/ab6super6-regeln.md)
 - [MindSync-Spezifikationsstand](docs/mindsync-regeln.md)
 
-Die Titelbilder sind für Stichrunde erstellt. DM Sans wird lokal geladen. Die [SIL Open Font License](src/assets/dm-sans-OFL.txt) liegt bei der Schrift.
+Die Titelbilder sind für Stichrunde erstellt. DM Sans wird lokal geladen. [SIL Open Font License](src/assets/dm-sans-OFL.txt)

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { chooseCard } from '../../../vendor/xeri/game/ai.js'
 import { GameAudio } from '../../../vendor/xeri/game/audio.js'
-import { newGame, playCard, viewFor } from '../../../vendor/xeri/game/engine.js'
+import { DECK, newGame, playCard, viewFor } from '../../../vendor/xeri/game/engine.js'
+import { randomFraction, shuffleCards } from '../../../shared/random'
 import type { Card } from '../../../vendor/xeri/game/engine.js'
 import { usePreferences } from '../../platform/preferences'
 import type { Flight } from './CardFlight'
@@ -19,7 +20,7 @@ type PlayGeometry = { source?: HTMLElement; table: HTMLElement | null; score: HT
 export function useXeriGame(difficulty: Difficulty, computerSource: () => PlayGeometry) {
   const { motion, sound } = usePreferences()
   const motionAllowed = useSyncExternalStore(subscribeToMotion, () => !reducedMotion.matches) && motion
-  const [game, setGame] = useState(() => newGame(2))
+  const [game, setGame] = useState(() => newGame(2, shuffleCards(DECK)))
   const current = useRef(game)
   const [flight, setFlight] = useState<Flight | null>(null)
   const audio = useRef<GameAudio | null>(null)
@@ -67,7 +68,7 @@ export function useXeriGame(difficulty: Difficulty, computerSource: () => PlayGe
     if (game.turn !== 1 || game.finished) return
     const timer = window.setTimeout(() => {
       if (current.current !== game) return
-      const card = chooseCard(viewFor(game, 1), difficulty)
+      const card = chooseCard(viewFor(game, 1), difficulty, randomFraction)
       if (card) handleMove(1, card, computerSource())
     }, motionAllowed ? 560 : 170)
     return () => window.clearTimeout(timer)
@@ -78,7 +79,7 @@ export function useXeriGame(difficulty: Difficulty, computerSource: () => PlayGe
   }, [])
 
   function restart() {
-    const next = newGame(2)
+    const next = newGame(2, shuffleCards(DECK))
     current.current = next
     setFlight(null)
     setGame(next)

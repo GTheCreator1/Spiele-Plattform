@@ -24,7 +24,7 @@ export const games: Game[] = [
     description: 'Gleiche Werte sammeln, den Tisch abräumen und eine Xeri landen.',
     cover: xeri,
     available: true,
-    players: 'Gegen Computer',
+    players: 'Solo oder online zu zweit und zu viert',
     notes: [
       'Vier Karten liegen zu Beginn offen auf dem Tisch. Du und dein Gegenüber bekommt je vier Handkarten und spielt abwechselnd eine davon aus.',
       'Ein gleicher Wert wie die oberste Tischkarte oder ein Bube räumt den gesamten Stapel ab. Auf einem leeren Tisch beginnt jede Karte einen neuen Stapel.',
@@ -64,8 +64,8 @@ export const games: Game[] = [
     category: 'Hausregeln',
     description: 'Verdeckte Karten merken, passend reinwerfen und bei höchstens sechs Punkten klopfen.',
     cover: ab6super6,
-    available: false,
-    players: 'Bis 6 Spieler',
+    available: true,
+    players: '2–6 Spieler online',
     notes: [
       'Aus 55 Karten erhält jede Person vier verdeckte Startkarten. Die Zusatzkarten sind drei Joker, die jeweils null Punkte zählen.',
       'Passende Karten können aus der eigenen oder einer fremden Auslage eingeworfen werden. Der Kartenwert und die Auswahl bestimmen, wer Strafkarten bekommt.',

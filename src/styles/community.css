@@ -56,6 +56,8 @@
 }
 .online-form select { width: min(100%, 15rem); }
 .mode-form { margin-left: 0; }
+.room-fields { border: 0; padding: 0; }
+.room-connection-on { color: var(--teal); }
 .member-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .72rem 0; border-bottom: 1px solid var(--line); }
 .member-row p, .member-row small { color: var(--muted); font-size: .875rem; }
 .member-row > :first-child { min-width: 0; overflow-wrap: anywhere; }

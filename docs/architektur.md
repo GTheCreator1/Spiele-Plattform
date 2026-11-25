@@ -1,35 +1,32 @@
 # Architektur
 
-## Aktueller Stand
+React und TypeScript setzen Hauptmenü, Katalog, Einstellungen, Lobby und Spieltische um. Fragment-Routing trägt Ansichten und Einladungslinks über Neuladen hinweg. Vite trennt die Startseite von den Spielansichten und lädt PeerJS erst bei einem Online-Raum. Der Produktionsbuild speichert öffentliche Ressourcen im Service-Worker-Cache. Nach dem ersten vollständigen Laden kann Xeri offline starten.
 
-- React und TypeScript bilden die Anwendungsoberfläche. Die Adressen hängen am URL-Fragment, etwa `#/spiele/xeri`, damit der GitHub-Pages-Server auch bei Neuladen dieselbe Einstiegsdatei liefert.
-- Die Startseite und der Katalog nutzen dieselben Spielmetadaten. Spielansicht und soziale Bereiche haben eigene JavaScript-Pakete. Hover und Tastaturfokus laden verfügbare Spielansichten vor.
-- Der Produktionsbuild versioniert den Cache aus dem Build-Inhalt. Er speichert nach dem Laden öffentliche App-Ressourcen im Geltungsbereich `/Spiele-Plattform/`. Das ermöglicht einen erneuten Offline-Start, sobald der Browser die Dateien gespeichert hat.
-- Einstellungen für Bewegung und Ton liegen lokal. Die Verbindungsanzeige nutzt Browserstatus und WebSocket-Zustand. Die Presence-Daten anderer Geräte kommen vom Backend.
-- Zustand, Ansicht, Kartenbewegung und Ton sind beim lokalen Xeri getrennt. Die Engine bestätigt einen Zug vor der Darstellung. Ein eigener Animationsebenen-Layer liegt außerhalb der Ansicht. Bei Größenwechsel, Scrollen oder verborgenem Tab wird der aktuelle Zustand sofort dargestellt. Der lokale Spielstand gilt für die geöffnete Tischansicht.
+## Verantwortlichkeiten
+
+| Schicht | Ort | Aufgabe |
+| --- | --- | --- |
+| Spielregeln | `vendor/xeri/game/`, `src/games/ab6super6/engine.ts` | Austeilung, erlaubte Züge, Effekte, Fristen und Wertung. Separate Kartenansicht für jeden Sitz. |
+| Spieladapter | `shared/game-match.ts`, `shared/random.ts` | Bindet Engines an Zufallsströme, Bots, verbindliche Zeitpunkte und nachrechenbare Ereignisse. |
+| Raum | `shared/room.ts`, `shared/online.ts` | Besetzung, Bereitschaft, Spielwahl, Chatlimits, Zufallszusagen, befristete Vorgänge, Versionen und Sitzrechte. |
+| Transport und Prüfung | `src/platform/peer-client.ts`, `host-peers.ts`, `secure-link.ts`, `peer-audit.ts`, `shared/wire.ts` | PeerJS-Signalisierung, WebRTC-Datenkanal, authentifizierte Frames, Schema-Prüfung, Sitzprojektionen und Nachrechnung nach Spielende. |
+| Identität und Speicherung | `src/platform/peer-storage.ts`, `preferences.tsx` | Flüchtiger Sitz und Wiederanmeldung im Gast-Tab. Gerätepräferenzen bleiben lokal. Der Host verwaltet die Partie im Arbeitsspeicher. |
+| Benutzeroberfläche | `src/features/`, `src/games/`, `src/ui/` | Raumablauf, Status, Kartenaktionen und getrennte Animationsebenen. Bei reduzierter Bewegung wird der bestätigte Zustand direkt dargestellt. |
+
+Ein späterer Backend-Adapter kann Raumautorität und Speicherung austauschen und weiterhin die Spieladapter und Oberflächen verwenden. Der aktuelle Veröffentlichungsbuild ist statisch.
+
+## Autoritative Aktionen und Fristen
+
+Host und Gäste verwenden dieselbe Spielzugprüfung. Beginn, Abbruch der Zufallsphase, Raumwahl und Bots sind Verwaltungsrechte des Raumerstellers. Jeder Spielzug enthält eine Partiekennung, die Ausgangsversion und eine Aktions-ID. Akzeptierte Wiederholungen mit identischer ID und identischen Daten werden übersprungen. Reinwürfe aus demselben Fenster können nach einem bereits bestätigten Reinwurf verarbeitet werden, sofern ihr Ziel noch besteht. Die Spielinstanz verarbeitet jede Aktion in Registrierungsreihenfolge.
+
+ab6super6 stempelt die Reaktionsfrist beim Ziehen und nach der letzten Ablage auf der Uhr des Host-Browsers. Dessen Timer verarbeitet das letzte Fenster und die Endwertung, sobald die Spezialeffekte abgeschlossen sind. Die Anzeige im Gast-Tab dient als Orientierung. Latenz und Browser-Drosselung können die praktisch verfügbare Reaktionszeit verkürzen.
 
 ## Xeri-Referenz
 
-Quelle ist der unveränderte Upstream-Stand [`68eb675`](https://github.com/GTheCreator1/xeri-card-game-/tree/68eb675bf2ff049fa4f6970d64405f125cb4f5d1). Die alte Anwendung besteht aus HTML, CSS, JavaScript und Tests mit Node. Im Referenz-Checkout liefen alle 16 Originaltests.
+Die bestehende Xeri-Engine stammt aus dem Referenzstand `68eb675`. Engine, KI und Ton sind bytegleich übernommen. Die Plattform verwendet die Engine für Solo-Xeri sowie Duell und Teamspiel. Der lokale Modus bietet Leicht, Normal und Schwer. Im Teammodus liegen Partner einander gegenüber. Die übernommene KI erhält eine Sitzansicht mit eigenen Karten und öffentlichen Informationen. [Unveränderter Referenzstand](https://github.com/GTheCreator1/xeri-card-game-/tree/68eb675bf2ff049fa4f6970d64405f125cb4f5d1)
 
 | Pfad unter `vendor/xeri/` | Verwendung |
 | --- | --- |
-| `game/engine.js` | Bytegleiche Übernahme für Kartenausgabe, Zugprüfung, Xeri und Endwertung. |
-| `game/ai.js` | Bytegleiche Übernahme. Die KI sieht die Sitzprojektion mit eigenen Karten, öffentlichen Karten und fremden Kartenzahlen. Leicht, Normal und Schwer sind verfügbar. |
-| `game/audio.js` | Bytegleiche Übernahme der Soundeffekte. Die Plattform stellt die Schalter bereit und schließt den Audiokontext beim Verlassen. |
-| `game/room.js`, `game/online.js` | Bytegleiche Referenz für Regressionstests. Diese Dateien werden vom Frontend nicht geladen. |
-| `tests/engine.test.js`, `tests/online.test.js` | Bytegleiche Referenztests, ausgeführt über `npm test`. Die Online-Tests verwenden simulierte Datenkanäle. |
-
-Die React-Ansicht und der Worker greifen über ergänzte Typdeklarationen auf die übernommenen Module zu. Das separat geprüfte `card-motion.js` animiert das Top-Karten-Element der alten DOM-Ansicht. Die Plattform verwendet eigene Animationen für die neue Renderstruktur. Die PeerJS-Referenz hält die Partie im offenen Host-Tab. Der Worker speichert die Plattform-Lobby und jeden Spielzustand unabhängig vom geöffneten Browser.
-
-## Online-Dienst
-
-| Funktion | Schnittstelle |
-| --- | --- |
-| Konten und Sitzungen | Server gibt öffentliche Profilfelder und eine widerrufbare Sitzung für ein Gerät aus. Identitätsfelder in Aktionen werden aus der geprüften Sitzung abgeleitet. |
-| Soziale Änderungen | Freundschaftsanfrage, Entscheidung und Entfernung sind serverseitige Aktionen. Einladungen sind einer Lobby und einem Zielkonto zugeordnet. Annahme, Prüfung freier Plätze und Mitgliedschaft werden in einer Transaktion verarbeitet. |
-| Lobby | Zustände `offen`, `läuft` und `beendet`. Die leere Lobby wird geschlossen. Start ausschließlich durch berechtigten Host bei vollständiger, bereiter und verbundener Besetzung. Bei Abbruch eines Geräts behält das Mitglied seinen Sitz. Bei absichtlichem Verlassen wechselt die Host-Rolle zum ersten verbleibenden Menschen. Laufende Partien kehren dann in die Lobby zurück. |
-| Spielaktion | Die Mitgliedschaft ermittelt die aktuelle Lobby. Partiekennung, Aktions-ID, erwartete Version und Nutzdaten werden geprüft. Wiederholte IDs führen zu einem aktuellen Snapshot ohne Ausführung des Zuges. Gleichzeitige Reinwürfe verwenden die Kennung des Zeitfensters und den serverseitig aktuellen Kartenplatz. |
-| Spielansicht | Berechtigtes Konto erhält einen öffentlichen Snapshot und den zugehörigen privaten Ausschnitt. Reconnect lädt einen neuen Snapshot. Chat-Sequenz und Spielzustandsversion ändern sich unabhängig voneinander. |
-
-Für Xeri liefert `viewFor(game, seat)` die Sitzprojektion. ab6super6 verwendet ein eigenes Zustandsmodell und eine getrennte Ansicht je Sitz. Der Server stempelt die Frist beim Ziehen und nach der letzten Ablage. Ein Alarm öffnet nach Ende des letzten Fensters die Wertung, sobald auch alle Effekte abgeschlossen sind. Die Uhr im Browser ist eine Orientierung. Verbindlich ist die Ankunft am Server, sodass hohe Netzlatenz das praktisch verfügbare Fenster verkürzen kann.
+| `game/engine.js`, `game/ai.js`, `game/audio.js` | Regeln, Computergegner und Sound. |
+| `game/room.js`, `game/online.js` | Referenz für die vorhandenen Regressionstests mit simulierten Verbindungen. |
+| `tests/engine.test.js`, `tests/online.test.js` | Unveränderte Originaltests in `npm test`. |
