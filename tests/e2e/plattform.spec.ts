@@ -72,3 +72,20 @@ test('Xeri startet aus dem Katalog und akzeptiert einen Zug ohne Überlauf', asy
     await expect(hand).toHaveCount(2)
   }
 })
+
+test('MindSync zeigt zugängliche Beispielkarten und respektiert reduzierte Bewegung', async ({ page, isMobile }) => {
+  if (isMobile) await page.setViewportSize({ width: 320, height: 740 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('./#/spiele/mindsync')
+  await expect(page.getByRole('heading', { name: 'MindSync', exact: true })).toBeVisible()
+  await expect(page.getByText('In Entwicklung', { exact: true })).toBeVisible()
+  const preview = page.getByRole('group', { name: 'Beispielkarten' })
+  await expect(preview.getByRole('img', { name: 'Zahlenkarte 18' })).toBeVisible()
+  await expect(preview.getByRole('img', { name: 'Zahlenkarte 76' })).toBeVisible()
+  const back = preview.getByRole('img', { name: 'Verdeckte Karte' })
+  await expect(back).toBeVisible()
+  await expect(back).toHaveText('')
+  await expect(back).toHaveCSS('animation-name', 'none')
+  await expect(page.getByRole('button', { name: 'Privaten Raum erstellen' })).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})

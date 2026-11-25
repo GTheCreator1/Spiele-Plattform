@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Bot, Info, LockKeyhole, Play, UsersRound } from 'lucide-react'
+import { Bot, Info, Play, UsersRound } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import type { OnlineGame } from '../../../shared/online'
 import { useOnline } from '../../platform/online'
 import { RoomForm } from '../community/RoomForm'
+import { MindSyncCardPreview } from '../../games/mindsync/MindSyncCard'
 import '../../styles/community.css'
 import { difficulties } from '../../games/xeri/difficulty'
 import type { Difficulty } from '../../games/xeri/difficulty'
@@ -47,17 +48,7 @@ export default function GameDetail() {
       <div className="detail-columns">
         {game.id === 'xeri' ? <XeriModes /> : game.id === 'ab6super6' ? (
           <section className="surface detail-panel"><h2>Private Lobby</h2><OnlineModes game="ab6super6" /></section>
-        ) : (
-          <section className="surface detail-panel">
-            <h2>Spielstatus</h2>
-            <div className="feature-line">
-              <span className="feature-icon"><LockKeyhole size={19} aria-hidden="true" /></span>
-              <div>
-                <h3>In Entwicklung</h3>
-              </div>
-            </div>
-          </section>
-        )}
+        ) : <MindSyncCardPreview />}
         <section className="surface detail-panel" aria-labelledby="rule-heading">
           <div className="panel-heading"><Info size={20} aria-hidden="true" /><h2 id="rule-heading">{game.available ? 'Spielregeln' : 'Spielidee'}</h2></div>
           <ul className="rule-list">{game.notes.map((note) => <li key={note}>{note}</li>)}</ul>
