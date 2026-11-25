@@ -1,39 +1,15 @@
 import { chromium, devices, expect, test } from '@playwright/test'
-import type { BrowserContext, Page } from '@playwright/test'
+import type { BrowserContext, Page, WebSocketRoute } from '@playwright/test'
+import { createRoom, hand, joinRoom } from './room'
 
 const verified = 'Kartenmischung und Spielverlauf nachgerechnet.'
-
-async function createRoom(host: Page, name: string, game: 'xeri' | 'ab6super6', seats: number) {
-  await host.goto(`./#/spiele/${game}`)
-  await host.getByLabel('Spitzname').fill(name)
-  await host.getByLabel('Spielerplätze').selectOption(String(seats))
-  await host.getByRole('button', { name: 'Privaten Raum erstellen' }).click()
-  await expect(host.getByText('Spielraum ist erreichbar.')).toBeVisible()
-  const link = await host.getByLabel('Einladungslink', { exact: true }).inputValue()
-  expect(new URL(link).hash).toMatch(/^#\/lobby\/[0-9a-f]{48}$/)
-  return link
-}
-
-async function joinRoom(guest: Page, name: string, link: string) {
-  await guest.goto(link)
-  await guest.getByLabel('Spitzname').fill(name)
-  await guest.getByRole('button', { name: 'Raum beitreten' }).click()
-  await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 15_000 })
-  await guest.getByRole('button', { name: 'Bereit', exact: true }).click()
-}
-
-function hand(page: Page) {
-  return page.getByRole('group', { name: 'Deine Handkarten' }).getByRole('button')
-}
 
 function messageBox(page: Page) {
   return page.getByRole('textbox', { name: 'Nachricht', exact: true })
 }
 
-test('Einladungslink, separater Chromium, Chat, Reconnect und zwei vollständige Xeri-Modi', async ({ browser, baseURL }) => {
-  const second = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-  })
+test('Einladungslink, separater Chromium, Chat, Reconnect und zwei vollständige Xeri-Modi', async ({ browser, baseURL }, info) => {
+  const second = await chromium.launch(info.project.use.launchOptions)
   const hostContext = await browser.newContext({ baseURL, reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] })
   const guestContext = await second.newContext({ baseURL, reducedMotion: 'reduce' })
   try {
@@ -113,6 +89,8 @@ test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussru
     await expect(own.getByRole('button', { name: /Verdeckt/ })).toHaveCount(2)
     await expect(guest.getByRole('region', { name: 'Auslage von Eins' }).getByRole('button', { name: /Verdeckt/ })).toHaveCount(4)
     await expect.poll(() => guest.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    await guest.setViewportSize({ width: 320, height: 740 })
+    await expect.poll(() => guest.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
     await guest.setViewportSize({ width: 844, height: 390 })
     await expect.poll(() => guest.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(844)
     for (const page of pages) await page.getByRole('button', { name: 'Verdecken und bereit' }).click()
@@ -151,3 +129,89 @@ test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussru
     await Promise.all(contexts.map((context) => context.close()))
   }
 })
+
+test('Xeri mit vier Menschen behält die Partie nach Signalisierungs- und Host-Ausfall', async ({ browser, baseURL }) => {
+  const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
+  try {
+    const [host, first, second, third] = await Promise.all(contexts.map((context) => context.newPage())) as [Page, Page, Page, Page]
+    const hostContext = contexts[0]!
+    const signals: WebSocketRoute[] = []
+    let allowSignaling = true
+    await hostContext.routeWebSocket('ws://127.0.0.1:8790/**', (socket) => {
+      if (allowSignaling) {
+        socket.connectToServer()
+        signals.push(socket)
+      } else void socket.close()
+    })
+    const link = await createRoom(host, 'Nord', 'xeri', 4)
+    await joinRoom(first, 'Ost', link)
+    await joinRoom(second, 'Süd', link)
+    await joinRoom(third, 'West', link)
+    await host.getByRole('button', { name: 'Partie starten', exact: true }).click()
+    for (const page of [host, first, second, third]) await expect(hand(page)).toHaveCount(4)
+
+    allowSignaling = false
+    await signals.at(-1)!.close()
+    await expect(host.getByRole('button', { name: 'Erneut verbinden' })).toBeVisible()
+    await hand(host).first().click()
+    await hand(first).first().click()
+    await expect(hand(host)).toHaveCount(3)
+    allowSignaling = true
+    await host.getByRole('button', { name: 'Erneut verbinden' }).click()
+    await expect(host.getByText('Spielraum ist erreichbar.')).toBeVisible({ timeout: 15_000 })
+
+    const name = await hand(second).first().getAttribute('aria-label')
+    await hostContext.setOffline(true)
+    await expect(host.getByRole('button', { name: 'Erneut verbinden' })).toBeVisible()
+    await expect(hand(second).first()).toBeDisabled({ timeout: 20_000 })
+    await hostContext.setOffline(false)
+    await expect(hand(second).first()).toBeEnabled({ timeout: 25_000 })
+    await expect(hand(second).first()).toHaveAttribute('aria-label', name!)
+
+    const pages = [host, first, second, third]
+    for (let move = 2; move < 48; move++) await hand(pages[move % 4]!).first().click()
+    for (const page of pages) await expect(page.getByText(verified, { exact: true })).toBeVisible()
+    await host.close()
+    await expect(first.getByRole('button', { name: 'Erneut verbinden' })).toBeVisible({ timeout: 25_000 })
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
+  }
+})
+
+test('ab6super6 synchronisiert zwei Reinwürfe im selben Zwei-Sekunden-Fenster', async ({ browser, baseURL }) => {
+  const [hostContext, nextContext, otherContext] = await Promise.all([
+    browser.newContext({ baseURL, reducedMotion: 'reduce' }),
+    browser.newContext({ baseURL, reducedMotion: 'reduce' }),
+    browser.newContext({ baseURL, reducedMotion: 'reduce' }),
+  ])
+  try {
+    const [host, next, other] = await Promise.all([hostContext.newPage(), nextContext.newPage(), otherContext.newPage()])
+    const link = await createRoom(host, 'Eins', 'ab6super6', 3)
+    await joinRoom(next, 'Zwei', link)
+    await joinRoom(other, 'Drei', link)
+    await host.getByRole('button', { name: 'Partie starten', exact: true }).click()
+    for (const page of [host, next, other]) await page.getByRole('button', { name: 'Verdecken und bereit' }).click()
+    await host.getByRole('button', { name: 'Karte ziehen' }).click()
+    await host.getByRole('button', { name: 'Gezogene Karte ablegen' }).click()
+    const targets = [host, other].map((page) => page.getByRole('region', { name: 'Deine Auslage' }).getByRole('button', { name: /Platz 1 .*Verdeckt/ }))
+
+    for (const page of [host, other]) await page.getByRole('button', { name: 'Reinwerfen', exact: true }).click()
+    await expect(pageDrawnBy(next)).toHaveCount(0)
+    await next.getByRole('button', { name: 'Karte ziehen' }).click()
+    await expect(pageDrawnBy(host)).toHaveAttribute('aria-label', 'Gezogen: Verdeckt')
+    await Promise.all(targets.map((target) => target.click()))
+    for (const target of targets) await expect(target).toHaveCount(0)
+    await expect(host.getByRole('region', { name: 'Auslage von Drei' }).getByRole('button', { name: /Platz 1 .*Verdeckt/ })).toHaveCount(0)
+
+    const pile = (page: Page) => page.locator('[data-flight="pile"]')
+    const finalTop = await pile(host).getAttribute('aria-label')
+    for (const page of [next, other]) await expect(pile(page)).toHaveAttribute('aria-label', finalTop!)
+    for (const page of [host, next, other]) await expect(page.getByRole('button', { name: 'Reinwerfen', exact: true })).toHaveCount(0)
+  } finally {
+    await Promise.all([hostContext.close(), nextContext.close(), otherContext.close()])
+  }
+})
+
+function pageDrawnBy(page: Page) {
+  return page.getByLabel(/^Gezogen:/)
+}

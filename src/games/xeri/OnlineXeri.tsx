@@ -68,7 +68,7 @@ export function OnlineXeri({ lobby, submit, busy }: { lobby: Lobby; submit: (act
           </div>
         </div>
       </div>
-      {flight && <CardFlight key={view.version} flight={flight} onComplete={finishFlight} />}
+      {flight && <CardFlight flight={flight} onComplete={finishFlight} />}
     </section>
   )
 }

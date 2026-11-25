@@ -24,14 +24,18 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
   const view = lobby.cambio!
   const board = useRef<HTMLElement>(null)
   const last = view.lastThrow
-  const { flight, finishFlight } = useSnapshotFlight(board, view.version, view.top ? [view.top] : [], last ? {
-    source: `slot-${last.target.seat}-${last.target.slot}`, card: last.card,
-  } : null)
-  const [mode, setMode] = useState<'throw' | 'effect' | 'swap'>('swap')
-  const [pair, setPair] = useState<Target[]>([])
+  const discard = view.lastDiscard
+  const cue = last ? { source: `slot-${last.target.seat}-${last.target.slot}`, card: last.card }
+    : discard ? { source: discard.slot === null ? 'drawn' : `slot-${discard.seat}-${discard.slot}`, card: discard.card }
+    : null
+  const { flight, finishFlight } = useSnapshotFlight(board, view.version, view.top ? [view.top] : [], cue)
+  const [throwWindow, setThrowWindow] = useState<number | null>(null)
+  const [choice, setChoice] = useState<{ effect: number; target: Target } | null>(null)
   const [clock, setClock] = useState(view.now)
   const receipt = useRef<{ key: string; id: string } | null>(null)
   const effect = view.effect?.seat === view.seat ? view.effect : null
+  const first = choice && choice.effect === effect?.id && view.players[choice.target.seat]?.cards.some(({ slot }) => slot === choice.target.slot)
+    ? choice.target : null
   const ready = view.players[view.seat]?.ready
   const ownTurn = view.turn === view.seat
   const playing = view.phase === 'playing'
@@ -40,24 +44,19 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
   const canDiscard = playing && Boolean(view.drawn) && !open && !view.effect && view.final?.remaining !== 0
   const labels = lobby.seats.map((seat) => seat.player?.name ?? `Platz ${seat.seat + 1}`)
   const top = flight ? flight.previousPile.at(-1) : view.top
-  const isThrowing = mode === 'throw' && open
+  const isThrowing = open && throwWindow === view.reaction?.id
 
   useEffect(() => {
     setClock(view.now)
     if (until === null || until === undefined || until <= view.now) return
-    const received = Date.now()
+    const received = performance.now()
     const timer = window.setInterval(() => {
-      const time = view.now + Date.now() - received
+      const time = view.now + performance.now() - received
       setClock(time)
       if (time >= until) window.clearInterval(timer)
     }, 75)
     return () => window.clearInterval(timer)
   }, [until, view.now])
-
-  useEffect(() => {
-    setPair([])
-    setMode(effect ? 'effect' : 'swap')
-  }, [effect?.id])
 
   function send(action: CambioAction) {
     const key = JSON.stringify({ action, version: view.version })
@@ -70,10 +69,10 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
       send({ type: 'throw', window: view.reaction.id, target })
     } else if (effect && !effect.chosen.length) {
       if (effect.kind === 'king' || effect.kind === 'blind-swap') {
-        if (!pair.length) setPair([target])
+        if (!first) setChoice({ effect: effect.id, target })
         else {
-          setPair([])
-          send({ type: 'effect-select', targets: [pair[0]!, target] })
+          setChoice(null)
+          send({ type: 'effect-select', targets: [first, target] })
         }
       } else send({ type: 'effect-select', targets: [target] })
     } else if (canDiscard && target.seat === view.seat) {
@@ -87,7 +86,7 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
     if (effect && !effect.chosen.length && effect.kind !== 'add') {
       if (effect.kind === 'own') return seat === view.seat
       if (effect.kind === 'other') return seat !== view.seat
-      return !pair.some((target) => target.seat === seat && target.slot === slot)
+      return first?.seat !== seat || first.slot !== slot
     }
     return canDiscard && seat === view.seat
   }
@@ -95,37 +94,46 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
   return (
     <section className="cambio-board" ref={board} aria-label="ab6super6-Spieltisch">
       <div className="cambio-table-top">
-        <div className="table-stack"><div className="table-slot card-size"><CardBack /></div><span>Deck · {view.deckCount}</span></div>
+        <div className="table-stack"><div className="table-slot card-size">{view.deckCount ? <CardBack /> : <span className="empty-slot">♣</span>}</div><span>Deck · {view.deckCount}</span></div>
         <div className="table-stack">
           <div className="table-slot card-size" data-flight="pile" aria-label={`Ablage · ${describe(view.top)}`}>{top ? <CardFace card={top} /> : <span className="empty-slot">♠</span>}</div>
           <span>Ablage</span>
         </div>
-        {view.drawn && <div className="table-stack"><div className="table-slot card-size" aria-label={`Gezogen: ${describe(view.drawn)}`}><CardFace card={view.drawn} /></div><span>Gezogen</span></div>}
+        {view.hasDrawn && <div className="table-stack cambio-drawn">
+          <div className="table-slot card-size" data-flight="drawn" aria-label={`Gezogen: ${describe(view.drawn)}`}>
+            {view.drawn ? <CardFace card={view.drawn} /> : <CardBack />}
+          </div><span>Gezogen</span>
+        </div>}
       </div>
       <div className="cambio-status" role="status">
         {view.phase === 'setup' && (ready ? 'Andere Spieler decken ihre Startkarten wieder zu.' : 'Du darfst deine beiden unteren Karten einmal ansehen.')}
         {playing && (view.final?.remaining === 0 ? 'Letzte Ablage' : ownTurn ? 'Du bist am Zug' : `${labels[view.turn]} ist am Zug`)}
         {playing && view.final && <span> · Schlussrunde</span>}
         {open && <span> · {typeof until === 'number' ? `${((until - clock) / 1000).toFixed(1)} s zum Reinwerfen` : 'Reinwurf offen'}</span>}
+        {playing && view.effect && !effect && <span> · Spezialaktion von {labels[view.effect.seat]} ausstehend</span>}
         {last && <span> · {last.correct ? 'Passend eingeworfen' : 'Falsch eingeworfen'}</span>}
         {view.phase === 'finished' && <span>Endwertung</span>}
         {view.unpaidPenalties > 0 && <span> · ${view.unpaidPenalties} Strafkarten konnten nicht ausgeteilt werden.</span>}
       </div>
+      {playing && !view.canDraw && !view.hasDrawn && view.final?.remaining !== 0 && (
+        <p className="cambio-status muted">Der Ziehstapel ist leer. Passende eigene Reinwürfe können Karten für den Ziehstapel freigeben.</p>
+      )}
       <div className="online-actions cambio-actions">
         {view.phase === 'setup' && !ready && <>
           <button className="button button-secondary" disabled={busy || view.startViewed} onClick={() => send({ type: 'peek-start' })}>Untere Karten ansehen</button>
           <button className="button button-primary" disabled={busy} onClick={() => send({ type: 'ready' })}>Verdecken und bereit</button>
         </>}
         {playing && ownTurn && !view.hasDrawn && view.final?.remaining !== 0 && <>
-          <button className="button button-primary" disabled={busy} onClick={() => send({ type: 'draw' })}>Karte ziehen</button>
+          <button className="button button-primary" disabled={busy || !view.canDraw} onClick={() => send({ type: 'draw' })}>Karte ziehen</button>
           {!view.final && <button className="button button-secondary" disabled={busy} onClick={() => send({ type: 'knock' })}>Klopfen</button>}
         </>}
         {view.drawn && <button className="button button-primary" disabled={busy || !canDiscard} onClick={() => send({ type: 'discard' })}>Gezogene Karte ablegen</button>}
-        {open && <button className="button button-secondary" aria-pressed={isThrowing} onClick={() => setMode(isThrowing ? 'swap' : 'throw')}>Reinwerfen</button>}
+        {open && view.reaction && <button className="button button-secondary" disabled={busy} aria-pressed={isThrowing}
+          onClick={() => setThrowWindow(isThrowing ? null : view.reaction!.id)}>Reinwerfen</button>}
       </div>
       {effect && <div className="cambio-effect">
         <strong>{actions[effect.kind]}</strong>
-        {(effect.kind === 'king' || effect.kind === 'blind-swap') && !effect.chosen.length && <p>{pair.length ? 'Wähle die zweite Karte.' : 'Wähle zwei verschiedene Karten.'}</p>}
+        {(effect.kind === 'king' || effect.kind === 'blind-swap') && !effect.chosen.length && <p>{first ? 'Wähle die zweite Karte.' : 'Wähle zwei verschiedene Karten.'}</p>}
         {effect.kind === 'add' && <div className="online-actions">{labels.map((name, seat) => seat === view.seat ? null :
           <button className="button button-secondary" key={seat} disabled={busy} onClick={() => send({ type: 'effect-select', seat })}>{name}</button>)}</div>}
         <div className="online-actions">
@@ -153,7 +161,7 @@ export function CambioTable({ lobby, submit, busy }: { lobby: Lobby; submit: (ac
           )
         })}
       </div>
-      {flight && <CardFlight key={view.version} flight={flight} onComplete={finishFlight} />}
+      {flight && <CardFlight flight={flight} onComplete={finishFlight} />}
     </section>
   )
 }

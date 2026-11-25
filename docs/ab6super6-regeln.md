@@ -29,6 +29,8 @@ Passende eigene oder fremde Karten dürfen bis zwei Sekunden nach dem von der Sp
 
 Die Spielinstanz mischt den Ablagestapel bei Bedarf neu. Die oberste offene Karte bleibt liegen. Fehlende Strafkarten werden als ausstehende Menge in Vergabereihenfolge gespeichert und ausgegeben, sobald Karten verfügbar sind. Bleiben nach letzter Reaktionsfrist und letzten Effekten Strafkarten offen, endet die Partie mit regulärer Wertung der tatsächlich ausgeteilten Karten. Die Ergebnisanzeige nennt die verbleibende Anzahl. Die Kartenmenge bleibt 55.
 
+Wenn alle übrigen Karten in den Auslagen liegen, ist Ziehen vorübergehend gesperrt. Ein passender eigener Reinwurf macht die bisherige oberste Ablage zum Nachmischen verfügbar. Offene Strafkarten werden zuerst nachgereicht. Das offene Reinwurffenster endet wie sonst zwei Sekunden nach dem erfolgreichen Ziehen. Der Tisch zeigt an, wenn es vorübergehend keine ziehbare Karte gibt.
+
 ## Klopfen und Endwertung
 
 Klopfen ist am Beginn des eigenen Zuges vor dem Ziehen möglich. Das System bewertet die verdeckten Punkte des Klopfers erst nach der Schlussrunde. Nach dem Klopfen spielt die nächste Person. Danach kommen alle einschließlich des Klopfers noch genau einmal an die Reihe.

@@ -9,7 +9,7 @@ import type { HostMessage } from '../../shared/wire'
 import type { Room } from '../../shared/room'
 import { linkLabel, makeChallenge, SecureLink } from './secure-link'
 
-type Remote = { link?: SecureLink; seat?: number; seen: number; count: number; burstAt: number; sentProof?: string }
+type Remote = { link?: SecureLink; seat?: number; seen: number; count: number; burstAt: number; sentProof?: string; sendingProof?: boolean }
 const alive = 40_000
 const greeting = 12_000
 
@@ -69,7 +69,9 @@ export class HostPeers {
 
   action(value: OnlineAction) {
     if (this.room.tick()) this.publish()
-    const result = this.room.action(0, parseAction(value))
+    const action = parseAction(value)
+    if (action.type === 'lobby-rematch' && this.proofInFlight()) throw new Error('Das Prüfprotokoll wird noch übertragen.')
+    const result = this.room.action(0, action)
     if (result.message) this.broadcast({ type: 'chat', message: result.message })
     if (result.message || result.changed) this.publish()
   }
@@ -90,7 +92,11 @@ export class HostPeers {
       remote.seat = seat
       const previous = this.members.get(seat)
       this.members.set(seat, remote)
-      previous?.link?.close()
+      if (previous?.link) {
+        const replaced = previous.link
+        void replaced.send({ type: 'ended', reason: 'Dein Platz wurde in einem anderen Tab geöffnet.' } satisfies HostMessage)
+          .finally(() => replaced.close())
+      }
       void link.send({ type: 'welcome', seat } satisfies HostMessage)
       this.publish()
       void this.sendHistory(remote)
@@ -169,17 +175,29 @@ export class HostPeers {
         } catch { this.audit = 'failed' }
       }
     }
-    this.update(lobby, this.room.chatHistory(), this.audit)
     for (const [seat, remote] of this.members) {
       void remote.link?.send({ type: 'snapshot', lobby: this.room.snapshot(seat) } satisfies HostMessage)
       if (proof && remote.sentProof !== proof.match) {
         remote.sentProof = proof.match
-        void this.sendProof(remote, proof)
+        remote.sendingProof = true
+        void this.sendProof(remote, proof).finally(() => {
+          remote.sendingProof = false
+          if (!this.disposed && this.audited === proof.match && this.members.get(seat) === remote) this.updateLocal()
+        })
       }
     }
+    this.updateLocal(lobby)
     window.clearTimeout(this.clock)
     const until = this.room.deadline()
     if (until !== null) this.clock = window.setTimeout(() => { this.room.tick(); this.publish() }, Math.max(1, until - this.now()))
+  }
+
+  private proofInFlight() {
+    return [...this.members.values()].some((remote) => remote.sendingProof && remote.sentProof === this.audited)
+  }
+
+  private updateLocal(lobby = this.room.snapshot(0)) {
+    this.update(lobby, this.room.chatHistory(), this.proofInFlight() ? 'checking' : this.audit)
   }
 
   private async sendProof(remote: Remote, packageToSend: NonNullable<ReturnType<Room['proof']>>) {

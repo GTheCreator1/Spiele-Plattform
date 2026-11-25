@@ -18,6 +18,7 @@ type FinalRound = { knocker: number; remaining: number }
 type Debt = { seat: number; count: number }
 export type Result = { seat: number; total: number; outcome: 'win' | 'tie' | 'loss'; invalidKnock: boolean }
 export type ThrowEvent = { seat: number; target: Target; card: CambioCard; correct: boolean; penalized: number | null }
+type DiscardEvent = { seat: number; slot: number | null; card: CambioCard }
 
 export type CambioState = {
   phase: 'setup' | 'playing' | 'finished'
@@ -32,6 +33,7 @@ export type CambioState = {
   debts: Debt[]
   result: Result[] | null
   lastThrow: ThrowEvent | null
+  lastDiscard: DiscardEvent | null
   version: number
 }
 
@@ -71,7 +73,7 @@ export function newCambio(seats: number, index: RandomIndex = uniformIndex): Cam
   }))
   return {
     phase: 'setup', players, deck: deck.slice(seats * 4), discard: [], turn: 0, drawn: null,
-    reaction: null, effects: [], final: null, debts: [], result: null, lastThrow: null, version: 0,
+    reaction: null, effects: [], final: null, debts: [], result: null, lastThrow: null, lastDiscard: null, version: 0,
   }
 }
 
@@ -146,6 +148,7 @@ export function advanceCambioClock(previous: CambioState, now: number) {
   const next = structuredClone(previous)
   next.version++
   next.lastThrow = null
+  next.lastDiscard = null
   finish(next, now)
   return next
 }
@@ -223,6 +226,7 @@ export function playCambio(previous: CambioState, actor: number, action: CambioA
   const player = state.players[actor]!
   state.version++
   state.lastThrow = null
+  state.lastDiscard = null
   if (state.phase === 'setup') {
     check(!player.ready, 'Du bist bereits bereit.')
     if (action.type === 'peek-start') {
@@ -265,6 +269,7 @@ export function playCambio(previous: CambioState, actor: number, action: CambioA
       }
       state.drawn = null
       place(state, actor, outgoing, true)
+      state.lastDiscard = { seat: actor, slot: action.slot ?? null, card: outgoing }
       if (state.final) state.final.remaining--
       state.reaction = { id: state.version, until: state.final?.remaining === 0 ? now + reactionMs : null }
       state.turn = (actor + 1) % state.players.length
@@ -288,13 +293,13 @@ export function viewCambio(state: CambioState, seat: number, now = Date.now()) {
   }))
   return {
     phase: state.phase, seat, players, version: state.version, turn: state.turn, now,
-    deckCount: state.deck.length, top: state.discard.at(-1) ?? null,
+    deckCount: state.deck.length, canDraw: state.deck.length > 0 || state.discard.length > 1, top: state.discard.at(-1) ?? null,
     drawn: seat === state.turn ? state.drawn?.card ?? null : null,
     hasDrawn: state.drawn !== null,
     reaction: state.reaction,
     effect: effect ? { id: effect.id, seat: effect.seat, kind: effect.kind, chosen: selected } : null,
     unpaidPenalties: state.phase === 'finished' ? state.debts.reduce((sum, debt) => sum + debt.count, 0) : 0,
-    final: state.final, result: state.result, lastThrow: state.lastThrow,
+    final: state.final, result: state.result, lastThrow: state.lastThrow, lastDiscard: state.lastDiscard,
     startViewed: state.players[seat]?.peeked ?? false,
   }
 }

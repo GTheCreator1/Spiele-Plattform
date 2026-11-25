@@ -31,8 +31,13 @@ const connectMs = 13_000
 const now = () => Math.floor(performance.timeOrigin + performance.now())
 
 function peerOptions(): PeerOptions {
-  const port = import.meta.env.DEV ? Number(import.meta.env.VITE_STICHRUNDE_TEST_SIGNAL_PORT) : 0
-  if (port) return { host: '127.0.0.1', port, secure: false, config: { iceServers: [] } }
+  if (import.meta.env.DEV && import.meta.env.MODE === 'e2e') {
+    const credential: string | undefined = import.meta.env.VITE_STICHRUNDE_TEST_RELAY_KEY
+    return { host: '127.0.0.1', port: 8790, secure: false, config: credential ? {
+      iceTransportPolicy: 'relay',
+      iceServers: [{ urls: 'turn:127.0.0.1:3479?transport=tcp', username: 'stichrunde', credential }],
+    } : { iceServers: [] } }
+  }
   return { secure: true }
 }
 
@@ -74,6 +79,7 @@ export class PeerSession {
     this.heartbeat = window.setInterval(this.pulse, 4_000)
     window.addEventListener('online', this.resume)
     window.addEventListener('offline', this.offline)
+    document.addEventListener('visibilitychange', this.visible)
     this.open()
   }
 
@@ -90,9 +96,14 @@ export class PeerSession {
       return
     }
     window.clearTimeout(this.timeout)
-    this.timeout = window.setTimeout(() => this.interrupted('Der Verbindungsaufbau dauert zu lange.'), connectMs)
-    if (this.host && this.peer?.disconnected && !this.peer.destroyed && this.everConnected) {
-      this.peer.reconnect()
+    this.timeout = window.setTimeout(() => {
+      if (this.host && this.everConnected && this.peer && !this.peer.open) this.peer.disconnect()
+      this.interrupted('Der Verbindungsaufbau dauert zu lange.')
+    }, connectMs)
+    if (this.host && this.peer && !this.peer.destroyed && this.everConnected) {
+      // PeerJS reconnects its signaling socket without tearing down working channels.
+      if (this.peer.open) this.hostReady()
+      else if (this.peer.disconnected) this.peer.reconnect()
       return
     }
     const old = this.peer
@@ -104,15 +115,8 @@ export class PeerSession {
     this.peer = peer
     peer.on('open', () => {
       if (!current()) return
-      if (this.host) {
-        window.clearTimeout(this.timeout)
-        this.everConnected = true
-        this.attempt = 0
-        this.set({ connected: true, status: 'Spielraum ist erreichbar.', retry: false })
-        this.host.publish()
-      } else if (!this.guest) {
-        this.connectGuest(peer)
-      }
+      if (this.host) this.hostReady()
+      else if (!this.guest) this.connectGuest(peer)
     })
     peer.on('connection', (connection) => {
       if (current() && this.host) this.host.attach(connection)
@@ -135,6 +139,16 @@ export class PeerSession {
         this.interrupted(error.type === 'peer-unavailable' ? 'Der Host ist nicht erreichbar.' : 'Die WebRTC-Verbindung ist unterbrochen.')
       }
     })
+  }
+
+  private hostReady() {
+    window.clearTimeout(this.timeout)
+    window.clearTimeout(this.retry)
+    this.retry = undefined
+    this.everConnected = true
+    this.attempt = 0
+    this.set({ connected: true, status: 'Spielraum ist erreichbar.', retry: false })
+    this.host?.publish()
   }
 
   private connectGuest(peer: Peer) {
@@ -255,10 +269,11 @@ export class PeerSession {
     if (this.disposed || this.stopped || this.retry !== undefined) return
     window.clearTimeout(this.timeout)
     if (!this.host) this.dropGuest()
-    const preserve = Boolean(this.host && this.everConnected && this.peer?.open)
+    const preserve = Boolean(this.host && this.everConnected && this.peer && !this.peer.destroyed)
     const bounded = this.attempt >= 4
-    this.set({ connected: preserve && navigator.onLine, status: bounded ? `${status} Warte, bis der Host wieder erreichbar ist.`
-      : `${status} Wiederverbindung läuft …`, retry: true })
+    const next = this.host ? 'Versuche die Signalisierung erneut zu verbinden.'
+      : 'Wenn der Host den Tab geschlossen oder neu geladen hat, brauchst du einen neuen Link.'
+    this.set({ connected: preserve && navigator.onLine, status: bounded ? `${status} ${next}` : `${status} Wiederverbindung läuft …`, retry: true })
     if (bounded || !navigator.onLine) return
     this.retry = window.setTimeout(() => {
       this.retry = undefined
@@ -275,6 +290,14 @@ export class PeerSession {
 
   private resume = () => {
     if (!this.stopped) this.reconnect()
+  }
+
+  private visible = () => {
+    if (document.hidden || this.stopped || this.disposed) return
+    if (!this.host && this.state.connected) {
+      this.last = now()
+      void this.link?.send({ type: 'ping' } satisfies GuestMessage)
+    } else if (this.state.retry && this.retry === undefined) this.reconnect()
   }
 
   reconnect() {
@@ -318,6 +341,7 @@ export class PeerSession {
     window.clearInterval(this.heartbeat)
     window.removeEventListener('online', this.resume)
     window.removeEventListener('offline', this.offline)
+    document.removeEventListener('visibilitychange', this.visible)
     this.rejectPending()
     if (notify && this.input.kind === 'guest') forgetGuest(this.invite)
     const announce = this.host ? this.host.close(notify) : notify ? this.link?.send({ type: 'leave' } satisfies GuestMessage) : undefined

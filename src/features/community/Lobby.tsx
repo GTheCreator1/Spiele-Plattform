@@ -71,6 +71,7 @@ function JoinRoom({ invite }: { invite: string }) {
         {(command.error || autoError) && <p role="alert" className="inline-error">{command.error || autoError}</p>}
         <button className="button button-primary" disabled={opening || command.pending}>Raum beitreten</button>
       </form>
+      <p className="muted">Der Host-Browser verwaltet die vollständige Partie einschließlich verdeckter Karten.</p>
       <Link className="text-link" to="/">Zurück zum Hauptmenü</Link>
     </div>
   )
@@ -111,7 +112,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
         {lobbyLinks}
       </header>
       <div className="online-actions">
-        <p className={room.connected ? 'room-connection-on' : 'muted'} role="status">{room.status}</p>
+        <p className={room.connected && !room.retry ? 'room-connection-on' : 'muted'} role="status">{room.status}</p>
         {room.retry && <button className="button button-secondary" onClick={reconnect}>Erneut verbinden</button>}
       </div>
       {lobby.notice && <p className="muted">{lobby.notice}</p>}
@@ -155,7 +156,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               {lobby.cambio && <CambioTable key={lobby.match} lobby={lobby} submit={submit} busy={turnBlocked} />}
               {lobby.phase === 'finished' && room.audit !== 'idle' && <p className={room.audit === 'failed' ? 'inline-error' : 'muted'}>{checks[room.audit]}</p>}
               {room.host && lobby.phase === 'finished' && (
-                <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-rematch' })}>Zurück zur Lobby</button>
+                <button className="button button-secondary" disabled={busy || room.audit === 'checking'} onClick={() => submit({ type: 'lobby-rematch' })}>Zurück zur Lobby</button>
               )}
             </>
           )}

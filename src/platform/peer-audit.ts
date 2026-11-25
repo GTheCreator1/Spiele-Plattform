@@ -1,4 +1,4 @@
-import { auditMatch, commitSecret, viewDigest } from '../../shared/game-match'
+import { auditMatch, commitSecret, maxAuditEvents, viewDigest } from '../../shared/game-match'
 import type { AuditStatus, GameMove, Lobby, MatchEvent, ProofStart, Round } from '../../shared/online'
 import { seedPattern } from '../../shared/online'
 import { digest, randomHex } from '../../shared/random'
@@ -13,6 +13,7 @@ export class PeerAudit {
   private observations = new Map<number, string>()
   private receipts = new Map<string, string>()
   private conflicting = false
+  private overflowed = false
   private proof: ProofStart | null = null
   private events: MatchEvent[] = []
   private sent = ''
@@ -34,6 +35,7 @@ export class PeerAudit {
       this.observations = new Map()
       this.receipts = new Map()
       this.conflicting = false
+      this.overflowed = false
       this.proof = null
       this.events = []
       this.sent = ''
@@ -44,8 +46,9 @@ export class PeerAudit {
       const hash = viewDigest(lobby)
       const prior = this.observations.get(version)
       if (prior && prior !== hash) this.conflicting = true
-      this.observations.set(version, hash)
-      if (lobby.phase === 'finished' && this.status === 'idle') this.status = 'checking'
+      if (prior || this.observations.size <= maxAuditEvents) this.observations.set(version, hash)
+      else this.overflowed = true
+      if (lobby.phase === 'finished' && this.status === 'idle') this.status = this.overflowed ? 'unavailable' : 'checking'
       return
     }
     const seeding = lobby.seeding
@@ -82,7 +85,9 @@ export class PeerAudit {
   }
 
   acknowledge(move: GameMove) {
-    if (this.match === move.match) this.receipts.set(move.id, digest(move))
+    if (this.match !== move.match) return
+    if (this.receipts.has(move.id) || this.receipts.size < maxAuditEvents) this.receipts.set(move.id, digest(move))
+    else this.overflowed = true
   }
 
   private locked(round: Round, proof: ProofStart) {
@@ -106,6 +111,12 @@ export class PeerAudit {
 
   private verify(lobby: Lobby) {
     const proof = this.proof!
+    if (this.overflowed) {
+      this.status = 'unavailable'
+      this.proof = null
+      this.events = []
+      return
+    }
     try {
       if (this.conflicting || !this.locked(proof.round, proof)) throw new Error('Die aufgezeichnete Zufallszusage fehlt oder wurde geändert.')
       auditMatch(lobby.id, proof, this.events, lobby.self, this.observations, this.receipts, lobby)

@@ -29,7 +29,21 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - run: npm run test:online
+      - name: Mehrspieler über lokalen Relay prüfen
+        run: npm run test:online
+      - name: Direkte WebRTC-Verbindungen prüfen
+        run: npm run test:online
+        env:
+          STICHRUNDE_TEST_DIRECT: '1'
+      - name: Produktionsbuild mit öffentlichem PeerJS prüfen
+        id: public-peerjs
+        continue-on-error: true
+        run: npm run test:online
+        env:
+          STICHRUNDE_TEST_PUBLIC: '1'
+      - name: Einschränkung des öffentlichen Verbindungschecks melden
+        if: steps.public-peerjs.outcome == 'failure'
+        run: echo '::warning::Der Test über den öffentlichen PeerJS-Dienst ist fehlgeschlagen. Die lokalen WebRTC-Tests waren erfolgreich.'
       - name: Pages-Artefakt bereitstellen
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
@@ -48,6 +62,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Pages-Quelle prüfen
+        uses: actions/configure-pages@v5
       - name: GitHub Pages bereitstellen
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Öffentliche Startseite prüfen
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          curl --fail --silent --show-error --retry 4 --retry-all-errors --max-time 15 "$PAGE_URL" --output "$RUNNER_TEMP/stichrunde.html"
+          grep -Fq '<title>Stichrunde · Spiele-Plattform</title>' "$RUNNER_TEMP/stichrunde.html"

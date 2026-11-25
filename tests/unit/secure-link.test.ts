@@ -51,3 +51,24 @@ test('verschlüsselte Kanäle prüfen Richtung, Reihenfolge und Wiederholungen a
   await direction.promise
   assert.equal(wrong.open, false)
 })
+
+test('ein Kanal verwirft übergroße, falsch geordnete und aus einem anderen Handshake stammende Nachrichten', async () => {
+  const sender = new Wire()
+  const link = new SecureLink(sender.connection, invite, nonce, true, () => assert.fail(), () => assert.fail())
+  await link.send({ type: 'ping' })
+  await link.send({ type: 'ping' })
+
+  for (const [challenge, message] of [
+    [nonce, 'x'.repeat(16_001)],
+    [nonce, sender.packets[1]!],
+    ['c'.repeat(32), sender.packets[0]!],
+    [nonce, new ArrayBuffer(1)],
+  ] as const) {
+    const receiver = new Wire()
+    const rejected = deferred<void>()
+    const guest = new SecureLink(receiver.connection, invite, challenge, false, () => assert.fail(), () => rejected.resolve())
+    guest.accept(message)
+    await rejected.promise
+    assert.equal(receiver.open, false)
+  }
+})

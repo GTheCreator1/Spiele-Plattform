@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  advanceCambioClock, cambioDeck, cambioPoints, newCambio, playCambio, scoreCambio, viewCambio,
+  advanceCambioClock, cambioDeck, cambioPoints, cambioRank, newCambio, playCambio, scoreCambio, viewCambio,
 } from '../../src/games/ab6super6/engine.ts'
 import type { CambioAction, CambioCard, CambioState } from '../../src/games/ab6super6/engine.ts'
 
@@ -212,6 +212,37 @@ test('nur verfügbare Strafkarten ausgeben und fehlende Karten nachreichen', () 
   assert.equal(state.discard.at(-1), '5H')
   assert.equal(state.debts.length, 0)
   assert.equal(state.players[0]!.cards.length, 2)
+  intact(state)
+})
+
+test('ein passender eigener Reinwurf macht bei erschöpftem Ziehstapel nach offenen Strafkarten wieder eine Ziehung möglich', () => {
+  let state = newCambio(6, () => 0)
+  for (const seat of state.players.keys()) state = use(state, seat, { type: 'ready' })
+  state = use(use(state, 0, { type: 'draw' }), 0, { type: 'discard' })
+  const window = state.reaction!.id
+  for (let throwIndex = 0; throwIndex < 31; throwIndex++) {
+    const rank = cambioRank(state.discard.at(-1)!)
+    const choice = state.players[0]!.cards.find(({ card }) => cambioRank(card) !== rank)!
+    state = use(state, 0, { type: 'throw', window, target: { seat: 0, slot: choice.slot } })
+  }
+  assert.equal(state.deck.length, 0)
+  assert.equal(state.discard.length, 1)
+  assert.equal(viewCambio(state, 1).canDraw, false)
+  assert.deepEqual(state.debts, [{ seat: 0, count: 1 }])
+  assert.throws(() => use(state, 1, { type: 'draw' }), /keine Karte verfügbar/)
+
+  function matchingThrow(previous: CambioState) {
+    const rank = cambioRank(previous.discard.at(-1)!)
+    const seat = previous.players.findIndex(({ cards }) => cards.some(({ card }) => cambioRank(card) === rank))
+    const { slot } = previous.players[seat]!.cards.find(({ card }) => cambioRank(card) === rank)!
+    return use(previous, seat, { type: 'throw', window, target: { seat, slot } })
+  }
+  state = matchingThrow(state)
+  assert.equal(state.debts.length, 0)
+  assert.equal(viewCambio(state, 1).canDraw, false)
+  state = matchingThrow(state)
+  assert.equal(viewCambio(state, 1).canDraw, true)
+  assert.equal(use(state, 1, { type: 'draw' }).drawn !== null, true)
   intact(state)
 })
 

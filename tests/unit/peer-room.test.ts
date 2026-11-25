@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { parse } from 'valibot'
 import { cambioDeck } from '../../src/games/ab6super6/engine.ts'
 import { DECK } from '../../vendor/xeri/game/engine.js'
 import { auditMatch, commitSecret, viewDigest } from '../../shared/game-match.ts'
 import type { GameMove, OnlineGame } from '../../shared/online.ts'
 import { digest, roundRandom, shuffleCards, uniformIndex } from '../../shared/random.ts'
 import { Room } from '../../shared/room.ts'
-import { parseAction } from '../../shared/wire.ts'
+import { fromHost, parseAction } from '../../shared/wire.ts'
 
 const roomId = 'a'.repeat(48)
 const token = (seat: number) => seat.toString(16).padStart(48, '0')
@@ -94,6 +95,37 @@ test('verspätete Zufallsbeiträge und unbekannte Spieler ändern keine Partie',
   assert.equal(advance(36_000), true)
   assert.equal(room.snapshot(1).phase, 'open')
   assert.equal(room.contribute(1, id, 'commit', contribution(1)), false)
+})
+
+test('ein Wiedereinstieg während der Zufallsphase behält den Sitz und den festgelegten Beitrag', () => {
+  const { room } = lobby('xeri', 2)
+  room.action(0, { type: 'lobby-start' })
+  const { round } = room.snapshot(1).seeding!
+  const hash = commitSecret(roomId, round, 1, contribution(1))
+  room.contribute(1, round.id, 'commit', hash)
+  room.disconnect(1)
+  assert.equal(room.snapshot(0).phase, 'seeding')
+  assert.equal(room.join(token(1), 'Gast 1'), 1)
+  assert.equal(room.snapshot(1).seeding?.commitments[1]?.hash, hash)
+  assert.equal(room.contribute(1, round.id, 'commit', hash), false)
+  room.contribute(1, round.id, 'reveal', contribution(1))
+  assert.equal(room.snapshot(1).phase, 'playing')
+})
+
+test('Wire-Prüfung verwirft widersprüchliche Xeri-Karten und sichtbare fremde ab6super6-Startkarten', () => {
+  const xeri = lobby('xeri', 2).room
+  seed(xeri)
+  const xeriView = xeri.snapshot(1)
+  assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: xeriView }))
+  xeriView.xeri!.hand[0] = xeriView.xeri!.table[0]!
+  assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: xeriView }))
+
+  const cambio = lobby('ab6super6', 2).room
+  seed(cambio)
+  const state = cambio.snapshot(1)
+  assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: state }))
+  state.cambio!.players[0]!.cards[2]!.card = '6S'
+  assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: state }))
 })
 
 test('Host und Gäste nutzen dieselbe Spielzugprüfung, getrennte Ansichten und Reconnect', () => {
