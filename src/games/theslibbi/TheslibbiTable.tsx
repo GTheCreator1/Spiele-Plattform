@@ -1,7 +1,6 @@
 import { Heart } from 'lucide-react'
 import { useRef } from 'react'
 import type { OnlineAction, Seat } from '../../../shared/online'
-import { theslibbiHandSize } from './engine'
 import type { TheslibbiView } from './engine'
 import { TheslibbiCard } from './TheslibbiCard'
 import './theslibbi-table.css'
@@ -15,7 +14,7 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
 }) {
   const receipt = useRef<{ version: number; id: string } | null>(null)
   const top = view.played.at(-1)
-  const total = seats.length * theslibbiHandSize
+  const total = seats.length * view.level
   const actor = view.last && seats[view.last.seat]?.player?.name
 
   function play(card: number) {
@@ -26,10 +25,11 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
   return (
     <section className="surface theslibbi-table" aria-label="THESLIBBI-Spieltisch">
       <header className="theslibbi-round-header">
-        <h2>Sortierrunde</h2>
+        <h2>Level {view.level} von {view.levelCount}</h2>
         <div className="theslibbi-round-stats">
           <span><Heart size={18} aria-hidden="true" /> {view.lives} von {seats.length} Leben</span>
           <span>{view.played.length} von {total} abgelegt</span>
+          <span>{view.score} {view.score === 1 ? 'Punkt' : 'Punkte'}</span>
         </div>
       </header>
       <div className="theslibbi-felt">
@@ -59,11 +59,13 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
       </div>
       <div className="theslibbi-feedback" role="status">
         {view.outcome === 'win' ? (
-          <><h3>Runde gewonnen</h3><p>Alle Karten wurden aufsteigend abgelegt.</p></>
+          <><h3>Runde gewonnen</h3><p>Ihr habt alle {view.levelCount} Level geschafft.</p></>
         ) : view.outcome === 'loss' ? (
           <><h3>Runde verloren</h3><p>Alle Leben sind verbraucht. Ungespielte Karten bleiben privat.</p></>
         ) : view.last?.kind === 'mistake' ? (
           <p>Ein Leben verloren. Die Karte bleibt auf der Hand.</p>
+        ) : view.last?.kind === 'level-up' ? (
+          <p>Level {view.level - 1} mit der {view.last.card} abgeschlossen.</p>
         ) : (
           <p>{actor ? `${actor} hat ${top} abgelegt.` : 'Spielt die kleinste noch gehaltene Zahl.'}</p>
         )}
@@ -71,7 +73,7 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
       <section className="theslibbi-hand-area" aria-labelledby="theslibbi-hand-heading">
         <h3 id="theslibbi-hand-heading">Deine Handkarten</h3>
         {view.hand.length === 0 ? <p>Deine Hand ist leer.</p> : (
-          <div className="theslibbi-hand">
+          <div className="theslibbi-hand" key={view.level}>
             {view.hand.map((value, index) => (
               <div className="theslibbi-hand-slot" key={value}>
                 {index === 0 && !view.outcome ? (

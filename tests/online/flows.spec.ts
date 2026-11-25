@@ -16,10 +16,10 @@ function playNumber(page: Page, card?: number) {
   return page.getByRole('button', { name: card === undefined ? /Karte \d+ ausspielen/ : `Karte ${card} ausspielen`, exact: true })
 }
 
-async function startNumberRound(pages: Page[]) {
-  await pages[0]!.getByRole('button', { name: 'Partie starten', exact: true }).click()
+async function readNumberLevel(pages: Page[], level: number, levelCount: number) {
   const hands = await Promise.all(pages.map(async (page, seat) => {
-    await expect(ownNumbers(page)).toHaveCount(4)
+    await expect(page.getByRole('heading', { name: `Level ${level} von ${levelCount}`, exact: true })).toBeVisible()
+    await expect(ownNumbers(page)).toHaveCount(level)
     await expect(page.getByRole('list', { name: 'Andere Hände' }).locator('.theslibbi-card-value')).toHaveCount(0)
     const cards = await ownNumbers(page).allTextContents()
     return cards.map((card) => ({ seat, card: Number(card) }))
@@ -29,22 +29,45 @@ async function startNumberRound(pages: Page[]) {
   return dealt
 }
 
-async function completeNumberRound(pages: Page[], dealt: Awaited<ReturnType<typeof startNumberRound>>) {
+async function startNumberRound(pages: Page[], levelCount: number) {
+  await pages[0]!.getByRole('button', { name: 'Partie starten', exact: true }).click()
+  return readNumberLevel(pages, 1, levelCount)
+}
+
+async function playNumberLevel(pages: Page[], dealt: Awaited<ReturnType<typeof readNumberLevel>>) {
   for (const [index, { seat, card }] of dealt.entries()) {
     const page = pages[seat]!
     await expect(page.getByText(`${index} von ${dealt.length} abgelegt`, { exact: true })).toBeVisible()
     await playNumber(page, card).click()
   }
+}
+
+async function completeNumberRound(pages: Page[], levelCount: number, lives: number, startLevel = 1) {
+  let dealt: Awaited<ReturnType<typeof readNumberLevel>> = []
+  let score = pages.length * startLevel * (startLevel - 1) / 2
+  for (let level = startLevel; level <= levelCount; level++) {
+    dealt = await readNumberLevel(pages, level, levelCount)
+    for (const page of pages) {
+      await expect(page.getByText(`${score} Punkte`, { exact: true })).toBeVisible()
+      await expect(page.getByText(`${lives} von ${pages.length} Leben`, { exact: true })).toBeVisible()
+      if (level === levelCount) {
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      }
+    }
+    await playNumberLevel(pages, dealt)
+    score += dealt.length
+  }
   for (const page of pages) {
     await expect(page.getByRole('heading', { name: 'Runde gewonnen' })).toBeVisible()
     await expect(page.getByText(verified, { exact: true })).toBeVisible()
+    await expect(page.getByText(`${score} Punkte`, { exact: true })).toBeVisible()
     const pile = page.getByRole('region', { name: 'Gemeinsame Ablage' })
     await expect(pile.getByRole('listitem')).toHaveText(dealt.slice(0, -1).map(({ card }) => String(card)))
     await expect(pile.getByRole('img', { name: `Zahlenkarte ${dealt.at(-1)!.card}` })).toBeVisible()
   }
 }
 
-test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum Sieg', async ({ browser, baseURL }, info) => {
+test('THESLIBBI synchronisiert zu viert Levelwechsel, Leben, Chatpause und Wiedereinstieg', async ({ browser, baseURL }, info) => {
   const secondBrowser = await chromium.launch(info.project.use.launchOptions)
   const contexts = await Promise.all([
     browser.newContext({ baseURL, reducedMotion: 'no-preference' }),
@@ -86,7 +109,7 @@ test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum
     await phone.getByRole('button', { name: 'Öffnen (1)', exact: true }).click()
     await expect(phone.getByRole('list', { name: 'Chatnachrichten' }).getByText('Alle da?')).toBeVisible()
 
-    const dealt = await startNumberRound(pages)
+    const dealt = await startNumberRound(pages, 8)
     await phone.setViewportSize({ width: 320, height: 740 })
     await phone.emulateMedia({ reducedMotion: 'reduce' })
     await expect(phone.locator('.theslibbi-hand-slot').first()).toHaveCSS('animation-name', 'none')
@@ -97,6 +120,17 @@ test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
 
+    const wrong = dealt.at(-1)!
+    await playNumber(pages[wrong.seat]!, wrong.card).click()
+    for (const page of pages) {
+      await expect(page.getByText('3 von 4 Leben')).toBeVisible()
+      await expect(page.getByText('0 von 4 abgelegt')).toBeVisible()
+    }
+    await expect(playNumber(pages[wrong.seat]!, wrong.card)).toBeVisible()
+    await playNumberLevel(pages, dealt)
+    await readNumberLevel(pages, 2, 8)
+    for (const page of pages) await expect(page.getByText(`Level 1 mit der ${wrong.card} abgeschlossen.`)).toBeVisible()
+
     const guestHand = await ownNumbers(guest).allTextContents()
     await guestContext.setOffline(true)
     for (const page of [host, tablet]) {
@@ -106,16 +140,10 @@ test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum
     await guestContext.setOffline(false)
     await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 20_000 })
     await expect(playNumber(host)).toBeEnabled()
+    await expect(guest.getByRole('heading', { name: 'Level 2 von 8', exact: true })).toBeVisible()
     await expect(ownNumbers(guest)).toHaveText(guestHand)
 
-    const wrong = dealt.find(({ seat }) => seat !== dealt[0]!.seat)!
-    await playNumber(pages[wrong.seat]!, wrong.card).click()
-    for (const page of pages) {
-      await expect(page.getByText('3 von 4 Leben')).toBeVisible()
-      await expect(page.getByText('0 von 16 abgelegt')).toBeVisible()
-    }
-    await expect(playNumber(pages[wrong.seat]!, wrong.card)).toBeVisible()
-    await completeNumberRound(pages, dealt)
+    await completeNumberRound(pages, 8, 3, 2)
     await expect(phone.getByRole('heading', { name: 'Lobbychat' })).toBeVisible()
     await expect(phone.getByText('Der Chat pausiert während der Sortierrunde.')).toHaveCount(0)
     await host.getByRole('button', { name: 'Zurück zur Lobby' }).click()
@@ -130,27 +158,29 @@ test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum
   }
 })
 
-for (const size of [2, 3]) {
-  test(`THESLIBBI beendet eine Sortierrunde mit ${size} Personen`, async ({ browser, baseURL }) => {
+for (const [size, levelCount] of [[2, 12], [3, 10]] as const) {
+  test(`THESLIBBI beendet ${levelCount} Level mit ${size} Personen`, async ({ browser, baseURL }) => {
     const contexts = await Promise.all(Array.from({ length: size }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
     try {
       const pages = await Promise.all(contexts.map((context) => context.newPage()))
       const link = await createRoom(pages[0]!, 'Mika', 'theslibbi', size)
       for (const [seat, page] of pages.slice(1).entries()) await joinRoom(page, `Gast ${seat + 1}`, link)
-      await completeNumberRound(pages, await startNumberRound(pages))
+      await startNumberRound(pages, levelCount)
+      await completeNumberRound(pages, levelCount, size)
     } finally {
       await Promise.all(contexts.map((context) => context.close()))
     }
   })
 }
 
-test('THESLIBBI beendet die Runde bei null Leben und zeigt weiterhin nur die eigene Hand', async ({ browser, baseURL }) => {
+test('THESLIBBI beendet Level 2 bei null Leben und setzt Level und Punkte bei einer neuen Partie zurück', async ({ browser, baseURL }) => {
   const contexts = await Promise.all(Array.from({ length: 2 }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
   try {
     const pages = await Promise.all(contexts.map((context) => context.newPage()))
     const link = await createRoom(pages[0]!, 'Mika', 'theslibbi', 2)
     await joinRoom(pages[1]!, 'Kim', link)
-    const dealt = await startNumberRound(pages)
+    await playNumberLevel(pages, await startNumberRound(pages, 12))
+    const dealt = await readNumberLevel(pages, 2, 12)
     const wrong = dealt.find(({ seat }) => seat !== dealt[0]!.seat)!
     const player = pages[wrong.seat]!
     await playNumber(player, wrong.card).click()
@@ -159,15 +189,18 @@ test('THESLIBBI beendet die Runde bei null Leben und zeigt weiterhin nur die eig
     for (const page of pages) {
       await expect(page.getByRole('heading', { name: 'Runde verloren' })).toBeVisible()
       await expect(playNumber(page)).toHaveCount(0)
-      await expect(ownNumbers(page)).toHaveCount(4)
+      await expect(ownNumbers(page)).toHaveCount(2)
+      await expect(page.getByText('2 Punkte', { exact: true })).toBeVisible()
       await expect(page.getByRole('list', { name: 'Andere Hände' }).locator('.theslibbi-card-value')).toHaveCount(0)
       await expect(page.getByText(verified, { exact: true })).toHaveCount(0)
     }
     await pages[0]!.getByRole('button', { name: 'Zurück zur Lobby' }).click()
     await pages[1]!.getByRole('button', { name: 'Bereit', exact: true }).click()
-    const nextDeal = await startNumberRound(pages)
-    expect(nextDeal).not.toEqual(dealt)
-    await completeNumberRound(pages, nextDeal)
+    await startNumberRound(pages, 12)
+    for (const page of pages) {
+      await expect(page.getByText('0 Punkte', { exact: true })).toBeVisible()
+      await expect(page.getByText('2 von 2 Leben', { exact: true })).toBeVisible()
+    }
   } finally {
     await Promise.all(contexts.map((context) => context.close()))
   }

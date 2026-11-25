@@ -128,7 +128,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               {theslibbi ? (
                 <header className="theslibbi-table-intro">
                   <h2>Spielplätze</h2>
-                  <p>Vier Karten pro Person. Sortiert sie gemeinsam.</p>
+                  <p>Ihr beginnt mit einer Karte pro Person.</p>
                 </header>
               ) : <h2>Spielplätze</h2>}
               {lobby.seats.map((seat) => (

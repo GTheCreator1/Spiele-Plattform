@@ -1,10 +1,18 @@
 # THESLIBBI
 
-## Spielbare Sortierrunde
+## Spielverlauf
 
-Zwei bis vier Personen erhalten jeweils vier private Karten aus dem Zahlenbereich 1 bis 100. Alle Kartenwerte sind unterschiedlich. Das Team startet mit einem gemeinsamen Leben pro Person.
+In Level 1 erhält jede Person eine private Karte aus dem Zahlenbereich 1 bis 100. Pro weiterem Level steigt die Handkartenzahl um eins. Innerhalb eines Levels sind alle Kartenwerte verschieden. Die Gruppengröße bestimmt die Anzahl der Level und die gemeinsamen Startleben.
 
-Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage. Bei einem Fehlversuch verliert das Team ein Leben. Die Karte bleibt verdeckt auf der Hand und kann später richtig ausgespielt werden. Das Team gewinnt, wenn alle Karten aufsteigend abgelegt sind. Bei null Leben endet die Partie mit einer Niederlage. Aus dem Ergebnis führt „Zurück zur Lobby“ zu einer neuen Runde mit frischer Austeilung.
+| Personen | Level | Startleben |
+| --- | ---: | ---: |
+| 2 | 12 | 2 |
+| 3 | 10 | 3 |
+| 4 | 8 | 4 |
+
+Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage und bringt einen Punkt für das Team. Bei einem Fehlversuch verliert das Team ein Leben. Die Karte bleibt für andere verdeckt auf der Hand und kann später richtig ausgespielt werden.
+
+Nach der letzten Karte startet das nächste Level automatisch mit neu gemischten Karten. Der Punktestand und die verbleibenden Leben gehen in das nächste Level über. Das Team gewinnt nach dem letzten Level. Bei null Leben endet die Partie mit einer Niederlage. Aus dem Ergebnis führt „Zurück zur Lobby“ zu einer neuen Partie ab Level 1.
 
 Während des Spiels pausiert der Raumchat. Wenn eine Verbindung ausfällt, pausieren die Züge bis zur Rückkehr. Jeder akzeptierte Zug erhöht den Spielstand um eine Version. Bei gleichzeitig eintreffenden Eingaben gilt die Reihenfolge beim Host. Eine Eingabe für einen überholten Spielstand lässt sich nach der Aktualisierung wiederholen und kostet kein Leben. Ein erneut gesendeter, bereits bestätigter Zug wirkt nur einmal.
 
@@ -14,21 +22,11 @@ Auf der Detailseite und unter „Spielraum“ lässt sich eine THESLIBBI-Lobby f
 
 Der Link allein berechtigt zum Beitritt auf einen freien Sitz. Der Raum und seine Chatnachrichten liegen im Arbeitsspeicher des Hosts. Der Gast-Tab merkt sich Spitznamen und Wiedereinstiegskennung im Sitzungsspeicher. Der Host-Browser verarbeitet alle Karten. Jede Spielansicht enthält nur die eigene Hand, die Kartenanzahl der übrigen Sitze und die öffentliche Ablage.
 
-Alle Personen tragen kryptografischen Zufall zur Austeilung bei. Nach einem Sieg können die Browser den Spielverlauf nachrechnen. Bei einer Niederlage bleiben die Zufallsbeiträge und das vollständige Zugprotokoll privat, da sich daraus die noch verdeckten Karten rekonstruieren ließen. [Einladungen und Vertrauensmodell](backend-entscheidung.md#einladungen-und-daten)
+Alle Personen tragen kryptografischen Zufall zur Austeilung bei. Aus diesen Beiträgen leitet der Host für jedes Level einen eigenen Zufallsstrom zur Mischung ab. Beim Levelwechsel überträgt er die neue Levelnummer und die nächste Hand an jeden Sitz. Nach einem Sieg können die Browser den Spielverlauf nachrechnen. Bei einer Niederlage bleiben die Zufallsbeiträge und das vollständige Zugprotokoll privat, da sich daraus die noch verdeckten Karten rekonstruieren ließen. [Einladungen und Vertrauensmodell](backend-entscheidung.md#einladungen-und-daten)
 
-## Dokumentierte Wünsche für die Kampagne
+## Frühere Regelwünsche
 
-Die folgende Levelstaffel, ihre Belohnungen, der einstimmige Impuls und das Entfernen übersprungener Karten gehören zur gewünschten Nachbildung des Originalablaufs. Die Regeln sind hier dokumentiert. Sie sind kein Bestandteil der spielbaren Sortierrunde.
-
-| Personen | Level | Startleben | Startimpulse |
-| --- | ---: | ---: | ---: |
-| 2 | 12 | 2 | 1 |
-| 3 | 10 | 3 | 1 |
-| 4 | 8 | 4 | 1 |
-
-Der Wunschstand sieht 100 unterschiedliche Zahlenkarten von 1 bis 100 vor. Pro Level wird neu und kryptografisch sicher gemischt. Jede Person erhält so viele Karten wie die Levelnummer und sieht nur die eigene Hand. Jede entscheidet selbst über den Zeitpunkt, an dem sie ihre niedrigste Handkarte offen spielt. Das Team legt gemeinsam aufsteigend ab. Es gibt keine Zugfolge. Absprachen über Kartenwerte und geheime Signale sind unzulässig. Während aktiver Level ist der Chat gesperrt.
-
-Ein zu frühes Ausspielen kostet ein gemeinsames Leben. Alle noch gehaltenen Karten mit niedrigerem Wert als die ausgespielte Karte werden abgelegt. Bei null Leben endet die Partie. Ein einstimmig angenommener Impuls verbraucht einen gemeinsamen Impuls. Jede Person, die noch Karten hält, legt daraufhin ihre niedrigste Handkarte offen ab. Für die erfolgreich abgeschlossenen Level 2, 5 und 8 gibt es je einen Impuls, für die Level 3, 6 und 9 je ein Leben. Es gelten die Höchstwerte fünf Leben und drei Impulse. Die Partie endet nach dem letzten Level der jeweiligen Gruppengröße. [NSV · Referenz zum gewünschten Spielablauf](https://www.nsv.de/infocenter/the-mind-original/)
+Die frühere Spezifikation sah einen Startimpuls und das Entfernen übersprungener Karten nach einem Fehlversuch vor. Ein einstimmig angenommener Impuls verbraucht einen gemeinsamen Impuls. Jede Person, die noch Karten hält, legt daraufhin ihre niedrigste Handkarte offen ab. Für die erfolgreich abgeschlossenen Level 2, 5 und 8 war je ein Impuls vorgesehen, für die Level 3, 6 und 9 je ein Leben. Als Höchstwerte waren fünf Leben und drei Impulse vorgesehen. [NSV · damalige Referenz](https://www.nsv.de/infocenter/the-mind-original/)
 
 ## Schutzrechtsprüfung für den privaten Einsatz am 25. November 2026
 

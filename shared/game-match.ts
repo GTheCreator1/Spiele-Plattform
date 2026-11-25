@@ -77,7 +77,8 @@ export function applyMatchEvent(state: State, round: Round, seed: string, event:
   if (state.type === 'theslibbi') {
     requireMove(move.type === 'theslibbi-play', 'Diese Aktion gehört zu einem anderen Spiel.')
     requireMove(move.version === state.data.version, 'Der Spielstand hat sich geändert.')
-    return { type: 'theslibbi', data: playTheslibbi(state.data, seat, move.card) }
+    const { index } = roundRandom(seed, 'deal', state.data.level)
+    return { type: 'theslibbi', data: playTheslibbi(state.data, seat, move.card, index) }
   }
   requireMove(move.type === 'cambio-play', 'Diese Aktion gehört zu einem anderen Spiel.')
   const action = move.action

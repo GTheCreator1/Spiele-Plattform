@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 import { isCard } from '../vendor/xeri/game/engine.js'
 import type { Card } from '../vendor/xeri/game/engine.js'
-import { theslibbiDeckSize, theslibbiHandSize, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
+import { theslibbiDeckSize, theslibbiLevelCount, theslibbiMaxLevel, theslibbiScore, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
 import { invitePattern, matchPattern, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
 import { maxAuditEvents } from './game-match.ts'
 
@@ -94,26 +94,34 @@ function ascending(cards: number[], after: number) {
 }
 
 const maxTheslibbiSeats = theslibbiSeats.at(-1)!
+const levelNumber = v.pipe(natural, v.minValue(1), v.maxValue(theslibbiMaxLevel))
+const theslibbiLastAction = v.variant('kind', [
+  object({ seat: index, kind: v.picklist(['played', 'mistake']) }),
+  object({ seat: index, kind: v.literal('level-up'), card: numberCard }),
+])
 const theslibbiView = v.pipe(object({
   seat: index, version: natural, lives: natural, outcome: v.nullable(v.picklist(['win', 'loss'])),
-  hand: v.pipe(v.array(numberCard), v.maxLength(theslibbiHandSize)),
-  handCounts: v.pipe(v.array(v.pipe(natural, v.maxValue(theslibbiHandSize))), v.maxLength(maxTheslibbiSeats)),
-  played: v.pipe(v.array(numberCard), v.maxLength(maxTheslibbiSeats * theslibbiHandSize)),
-  last: v.nullable(object({ seat: index, kind: v.picklist(['played', 'mistake']) })),
-}), v.check(({ seat, hand, handCounts, lives, played, version, outcome, last }) => {
+  level: levelNumber, levelCount: levelNumber, score: natural,
+  hand: v.pipe(v.array(numberCard), v.maxLength(theslibbiMaxLevel)),
+  handCounts: v.pipe(v.array(v.pipe(natural, v.maxValue(theslibbiMaxLevel))), v.maxLength(maxTheslibbiSeats)),
+  played: v.pipe(v.array(numberCard), v.maxLength(maxTheslibbiSeats * theslibbiMaxLevel)),
+  last: v.nullable(theslibbiLastAction),
+}), v.check(({ seat, hand, handCounts, level, levelCount, score, lives, played, version, outcome, last }) => {
   const players = handCounts.length
   const remaining = handCounts.reduce((sum, count) => sum + count, 0)
-  if (handCounts[seat] !== hand.length || lives > players || version !== played.length + players - lives ||
-    remaining + played.length !== players * theslibbiHandSize ||
+  if (levelCount !== theslibbiLevelCount(players) || level > levelCount || handCounts.some((count) => count > level) ||
+    score !== theslibbiScore(players, level, played.length) || version !== score + players - lives ||
+    handCounts[seat] !== hand.length || lives > players || remaining + played.length !== players * level ||
     !ascending(played, 0) || !ascending(hand, played.at(-1) ?? 0) ||
     (version === 0) !== (last === null)) return false
   if (last) {
     const count = handCounts[last.seat]
-    if (count === undefined || (last.kind === 'played' && (!played.length || count === theslibbiHandSize)) ||
-      (last.kind === 'mistake' && (lives === players || count === 0))) return false
+    if (count === undefined || (last.kind === 'played' && (!played.length || count === level)) ||
+      (last.kind === 'mistake' && (lives === players || count === 0)) ||
+      (last.kind === 'level-up' && (level === 1 || played.length > 0))) return false
   }
   if (lives === 0) return outcome === 'loss' && remaining > 0 && last?.kind === 'mistake'
-  if (remaining === 0) return outcome === 'win' && last?.kind === 'played'
+  if (remaining === 0) return level === levelCount && outcome === 'win' && last?.kind === 'played'
   return outcome === null
 }))
 

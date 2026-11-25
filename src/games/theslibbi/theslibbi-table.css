@@ -99,8 +99,15 @@
 .theslibbi-feedback { padding: .75rem; border-radius: 9px; background: #2d2340; text-align: center; }
 .theslibbi-feedback p, .theslibbi-hand-area p { color: #e0d3ed; }
 .theslibbi-hand-area { display: grid; gap: .6rem; justify-items: center; min-width: 0; }
-.theslibbi-hand { display: flex; justify-content: center; gap: clamp(.4rem, 1.6vw, .68rem); width: 100%; }
-.theslibbi-hand-slot { flex: 0 1 4.9rem; min-width: 0; }
+.theslibbi-hand {
+  --hand-gap: clamp(.4rem, 1.6vw, .68rem);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--hand-gap);
+  width: 100%;
+}
+.theslibbi-hand-slot { flex: 0 0 min(4.9rem, calc((100% - 3 * var(--hand-gap)) / 4)); min-width: 0; }
 .theslibbi-play-card {
   display: block;
   width: 100%;
