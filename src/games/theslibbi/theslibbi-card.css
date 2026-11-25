@@ -1,15 +1,3 @@
-.theslibbi-preview-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(.36rem, 1.8vw, .8rem);
-  max-width: 18rem;
-  margin: 1rem auto 0;
-  padding: clamp(.55rem, 1.8vw, .8rem);
-  border: 1px solid #3a3857;
-  border-radius: 12px;
-  background: radial-gradient(ellipse at bottom, #302749, #1e1d31 72%);
-}
-
 .theslibbi-card {
   position: relative;
   display: grid;
@@ -69,11 +57,3 @@
 
 .theslibbi-card-mark::before { transform: rotate(35deg) scaleX(.48); }
 .theslibbi-card-mark::after { transform: rotate(-35deg) scaleX(.48); }
-
-.theslibbi-preview-cards > .theslibbi-card { animation: theslibbi-deal 240ms cubic-bezier(.24,.78,.28,1) backwards; }
-.theslibbi-preview-cards > .theslibbi-card:nth-child(2) { animation-delay: 55ms; }
-.theslibbi-preview-cards > .theslibbi-card:nth-child(3) { animation-delay: 110ms; }
-
-@keyframes theslibbi-deal {
-  from { opacity: 0; transform: translateY(-.65rem) scale(.95); }
-}

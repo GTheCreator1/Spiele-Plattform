@@ -1,7 +1,8 @@
 import * as v from 'valibot'
 import { isCard } from '../vendor/xeri/game/engine.js'
 import type { Card } from '../vendor/xeri/game/engine.js'
-import { invitePattern, isPlayableGame, matchPattern, playableGames, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
+import { theslibbiDeckSize, theslibbiHandSize, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
+import { invitePattern, matchPattern, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
 import { maxAuditEvents } from './game-match.ts'
 
 const object = v.strictObject
@@ -18,6 +19,7 @@ const text = v.pipe(v.string(), v.minLength(1), v.maxLength(500))
 const statusText = v.pipe(v.string(), v.maxLength(240))
 const game = v.picklist(roomGames)
 const card = v.pipe(v.string(), v.check((value: string) => isCard(value)), v.transform((value) => value as Card))
+const numberCard = v.pipe(natural, v.minValue(1), v.maxValue(theslibbiDeckSize))
 const cambioCard = v.union([card, v.picklist(['joker-1', 'joker-2', 'joker-3'])])
 const cards = v.pipe(v.array(card), v.maxLength(52))
 const player = object({ id, name })
@@ -79,7 +81,7 @@ const cambioView = v.pipe(object({
 
 const settings = v.pipe(object({ game, capacity: natural }), v.check(validSettings))
 const seat = object({ seat: index, player: v.nullable(player), bot: bool, ready: bool, online: bool })
-const round = v.pipe(object({ id: match, game: v.picklist(playableGames), capacity: natural, humans: v.pipe(v.array(index), v.maxLength(6)) }), v.check((value) => {
+const round = v.pipe(object({ id: match, game, capacity: natural, humans: v.pipe(v.array(index), v.maxLength(6)) }), v.check((value) => {
   return validSettings(value) && value.humans[0] === 0 &&
     value.humans.every((seat, i) => seat < value.capacity && (i === 0 || seat > value.humans[i - 1]!)) &&
     (value.humans.length === value.capacity || (value.game === 'xeri' && value.capacity === 4))
@@ -87,24 +89,59 @@ const round = v.pipe(object({ id: match, game: v.picklist(playableGames), capaci
 const commitments = v.pipe(v.array(object({ seat: index, hash: seed })), v.maxLength(6))
 const seeding = object({ round, step: v.picklist(['commit', 'reveal']), commitments })
 
+function ascending(cards: number[], after: number) {
+  return cards.every((card, index) => card > (cards[index - 1] ?? after))
+}
+
+const maxTheslibbiSeats = theslibbiSeats.at(-1)!
+const theslibbiView = v.pipe(object({
+  seat: index, version: natural, lives: natural, outcome: v.nullable(v.picklist(['win', 'loss'])),
+  hand: v.pipe(v.array(numberCard), v.maxLength(theslibbiHandSize)),
+  handCounts: v.pipe(v.array(v.pipe(natural, v.maxValue(theslibbiHandSize))), v.maxLength(maxTheslibbiSeats)),
+  played: v.pipe(v.array(numberCard), v.maxLength(maxTheslibbiSeats * theslibbiHandSize)),
+  last: v.nullable(object({ seat: index, kind: v.picklist(['played', 'mistake']) })),
+}), v.check(({ seat, hand, handCounts, lives, played, version, outcome, last }) => {
+  const players = handCounts.length
+  const remaining = handCounts.reduce((sum, count) => sum + count, 0)
+  if (handCounts[seat] !== hand.length || lives > players || version !== played.length + players - lives ||
+    remaining + played.length !== players * theslibbiHandSize ||
+    !ascending(played, 0) || !ascending(hand, played.at(-1) ?? 0) ||
+    (version === 0) !== (last === null)) return false
+  if (last) {
+    const count = handCounts[last.seat]
+    if (count === undefined || (last.kind === 'played' && (!played.length || count === theslibbiHandSize)) ||
+      (last.kind === 'mistake' && (lives === players || count === 0))) return false
+  }
+  if (lives === 0) return outcome === 'loss' && remaining > 0 && last?.kind === 'mistake'
+  if (remaining === 0) return outcome === 'win' && last?.kind === 'played'
+  return outcome === null
+}))
+
 const snapshot = v.pipe(object({
   id: invite, revision: natural, self: index, game, capacity: natural, phase: v.picklist(['open', 'seeding', 'playing', 'finished']),
   seats: v.pipe(v.array(seat), v.maxLength(6)), match: v.nullable(match),
-  xeri: v.nullable(xeriView), cambio: v.nullable(cambioView), seeding: v.nullable(seeding), notice: statusText,
+  xeri: v.nullable(xeriView), cambio: v.nullable(cambioView), theslibbi: v.optional(theslibbiView),
+  seeding: v.nullable(seeding), notice: statusText,
 }), v.check((lobby) => {
+  const { xeri, cambio, theslibbi, seeding } = lobby
   if (!validSettings(lobby) || lobby.seats.length !== lobby.capacity || !lobby.seats[lobby.self]?.player ||
     !lobby.seats.every((seat, index) => seat.seat === index && !(seat.player && seat.bot))) return false
-  if (lobby.game === 'theslibbi' && lobby.seats.some((seat) => seat.bot)) return false
-  if (lobby.phase === 'open') return lobby.match === null && lobby.seeding === null && !lobby.xeri && !lobby.cambio
-  if (!isPlayableGame(lobby.game)) return false
-  if (lobby.phase === 'seeding') return !!lobby.seeding && lobby.match === lobby.seeding.round.id && !lobby.xeri && !lobby.cambio
-  if (!lobby.match || lobby.seeding) return false
+  if (lobby.game === 'theslibbi' && lobby.seats.some((seat) => seat.bot || (!seat.player && lobby.phase !== 'open'))) return false
+  if (lobby.phase === 'open') return lobby.match === null && !seeding && !xeri && !cambio && !theslibbi
+  if (lobby.phase === 'seeding') return !!seeding && lobby.match === seeding.round.id && seeding.round.game === lobby.game &&
+    seeding.round.capacity === lobby.capacity && !xeri && !cambio && !theslibbi
+  if (!lobby.match || seeding) return false
+  const finished = lobby.phase === 'finished'
   if (lobby.game === 'xeri') {
-    return !!lobby.xeri && !lobby.cambio && lobby.xeri.seat === lobby.self && lobby.xeri.seats === lobby.capacity &&
-      lobby.xeri.finished === (lobby.phase === 'finished') && lobby.xeri.handCounts.length === lobby.capacity
+    return !!xeri && !cambio && !theslibbi && xeri.seat === lobby.self && xeri.seats === lobby.capacity &&
+      xeri.finished === finished && xeri.handCounts.length === lobby.capacity
   }
-  return !!lobby.cambio && !lobby.xeri && lobby.cambio.seat === lobby.self && lobby.cambio.players.length === lobby.capacity &&
-    (lobby.cambio.phase === 'finished') === (lobby.phase === 'finished')
+  if (lobby.game === 'theslibbi') {
+    return !!theslibbi && !xeri && !cambio && theslibbi.seat === lobby.self && theslibbi.handCounts.length === lobby.capacity &&
+      (theslibbi.outcome !== null) === finished
+  }
+  return !!cambio && !xeri && !theslibbi && cambio.seat === lobby.self && cambio.players.length === lobby.capacity &&
+    (cambio.phase === 'finished') === finished
 }))
 
 const cambioAction = v.union([
@@ -118,6 +155,7 @@ const cambioAction = v.union([
 const move = v.variant('type', [
   object({ type: v.literal('xeri-play'), id, match, version: natural, card }),
   object({ type: v.literal('cambio-play'), id, match, version: natural, action: cambioAction }),
+  object({ type: v.literal('theslibbi-play'), id, match, version: natural, card: numberCard }),
 ])
 const onlineAction = v.union([
   move,

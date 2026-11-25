@@ -1,6 +1,6 @@
 # Entwicklungsstand und Prüfprotokoll
 
-Die Entwicklung wurde am 25. November 2026 ab Commit `cb970fd` wieder aufgenommen. Der Peer-to-Peer-Stand für die Veröffentlichung integriert Xeri und ab6super6 ohne Konto in die statische Plattform. Die frühere Cloudflare-Implementierung liegt in der Git-Historie. [Gesicherter Ausgangsstand](https://github.com/GTheCreator1/Spiele-Plattform/commit/cb970fdce682fa5a08cbe41d841a4c133431013b)
+Die Entwicklung wurde am 25. November 2026 ab Commit `cb970fd` wieder aufgenommen. Der aktuelle Peer-to-Peer-Stand integriert Xeri, ab6super6 und THESLIBBI ohne Konto in die statische Plattform. Die frühere Cloudflare-Implementierung liegt in der Git-Historie. [Gesicherter Ausgangsstand](https://github.com/GTheCreator1/Spiele-Plattform/commit/cb970fdce682fa5a08cbe41d841a4c133431013b)
 
 ## Funktionen
 
@@ -12,7 +12,7 @@ Die Entwicklung wurde am 25. November 2026 ab Commit `cb970fd` wieder aufgenomme
 | Chat und Wiederverbindung | Flüchtiger Raumchat, Größen- und Frequenzgrenzen, zuggebundene Aktions-IDs und Wiedereinstieg auf dem ursprünglichen Gast-Sitz. Der Host-Tab hält die Partie im Arbeitsspeicher. |
 | Kartenzufall | Gleichverteilte Indexauswahl im Fisher–Yates-Algorithmus. Gemeinsame Zufallszusagen für Online-Partien und Nachrechnung nach Spielende. Gäste erhalten nur ihre erlaubte Sicht. Der Host-Browser kann intern das gesamte Deck lesen. |
 | Lügen | Kachel und Seite mit „Mach ich bald“ und „Zurück zum Hauptmenü“. |
-| THESLIBBI | Private PeerJS-Lobby für zwei bis vier Personen mit Spitznamen, Einladung, Bereitschaft, Lobbychat und Wiedereinstieg. Eigene Kartenmotive und Animation auf der Detailseite. Spielmodus, Level, Impulse und Wertung sind offen. |
+| THESLIBBI | Vollständige Sortierrunden für zwei bis vier Personen mit privaten Händen, gemeinsamem Zufall, freier Zugfolge, Leben, Sieg oder Niederlage und Neuausteilung. Der Chat pausiert während des Spiels. Die dokumentierte Originalkampagne mit Levelstaffel, Impulsen, Belohnungen und Entfernen übersprungener Karten ist nicht Teil des Spielmodus. |
 
 [Architektur](architektur.md) · [PeerJS, Sicherheit und GitHub Pages](backend-entscheidung.md) · [ab6super6-Hausregeln](ab6super6-regeln.md) · [THESLIBBI](theslibbi-regeln.md)
 
@@ -30,12 +30,12 @@ Der Prüfstand für THESLIBBI liegt auf `development/theslibbi`. Die ursprüngli
 
 | Prüfumfang | Ergebnis |
 | --- | --- |
-| Automatisiert · Regeln, Raumzustand, Sicherheit | `npm test` bestand mit **46 Tests**. Darunter sind 4.000 vollständige Mischvorgänge, 55.000 Zufallsindex-Prüfwerte, 120 automatisch gespielte vollständige Xeri-Partien aus der Referenz, private Sitzprojektionen sowie Szenarien für ab6super6 mit chronologischen Effekten, Klopfen, Gleichstand, Neumischen und erschöpftem Stapel. THESLIBBI deckt die Lobbygrößen zwei, drei und vier, reservierte Sitze beim Wiedereinstieg und die Ablehnung von Bots, Spielstarts und unzulässigen Spielzuständen ab. |
-| Automatisiert · Produktionsbuild | `npm run build` und **11 Chromium-Tests** bestanden. Sie prüfen Desktop- und iPhone-Viewport, Spielansichten und Platzhalter, Fragmentnavigation, Solo-Xeri bis zur Wertung, Größenwechsel und Offline-Start. Für THESLIBBI prüfen sie Raumformular, Kartenmotive und reduzierte Bewegung. |
-| Automatisiert · echte WebRTC-Datenkanäle lokal | **5 Szenarien** bestanden über lokalen TURN/TCP. Sie decken Xeri-Duell, Teamspiel mit Bots, Vierer-Xeri, Signalisierungsausfall und Verbindungsabbrüche ab. Bei ab6super6 prüfen sie die Schlussrunde bis zur Wertung mit sechs Mitspielern und parallele Reinwürfe. Die THESLIBBI-Vierer-Lobby wurde mit zwei Chromium-Prozessen, emulierten iPhone- und iPad-Ansichten, Chat, gleichzeitigen Bereitschaftswechseln, Wiederverbindung und Schließen des Raums geprüft. |
-| Weitere Netzpfade | Der lokale Direkttest scheiterte beim ersten Gastbeitritt. Das verwaltete Chromium sperrt UDP ohne Proxy. Der Produktionscheck über den öffentlichen PeerJS-Dienst scheiterte bereits beim Öffnen des Raums. Der Entwicklungsproxy beantwortete den Zugriff auf den Signalisierungsendpunkt mit HTTP 403. |
+| Automatisiert · Regeln, Raumzustand, Sicherheit | `npm test` bestand mit **51 Tests**. THESLIBBI deckt 240 zufällige Austeilungen ohne Duplikate, vollständige Siege mit zwei, drei und vier Personen, Fehler und Niederlage, private Sicht beim Wiedereinstieg, doppelte und überholte Züge sowie die Ablehnung fehlerhafter Spielansichten ab. Die Regel- und Regressionstests von Xeri und ab6super6 sind enthalten. |
+| Automatisiert · Produktionsbuild | `npm run build` und **11 Chromium-Tests** bestanden. Sie prüfen Desktop- und iPhone-Viewport, Spielauswahl, Raumformular und Regeln von THESLIBBI, Platzhalter, Fragmentnavigation, Solo-Xeri bis zur Wertung, Größenwechsel und Offline-Start. |
+| Automatisiert · echte WebRTC-Datenkanäle lokal | **8 Szenarien** bestanden über lokalen TURN/TCP. THESLIBBI wurde bis zum Sieg mit zwei, drei und vier Personen sowie bis zur Niederlage mit anschließendem Neustart gespielt. Die Viererrunde prüft zwei Chromium-Prozesse, iPhone- und iPad-Ansichten, reduzierte Bewegung, Chatpause und Wiederverbindung mit derselben Hand. Die bestehenden Szenarien decken Xeri-Duell, Teamspiel, Netz- und Signalisierungsausfall sowie ab6super6 bis zur Schlusswertung und parallele Reinwürfe ab. |
+| Weitere Netzpfade | Der THESLIBBI-Direkttest scheiterte beim Gastbeitritt. Das verwaltete Chromium sperrt UDP ohne Proxy. Der Produktionscheck über den öffentlichen PeerJS-Dienst scheiterte bereits beim Öffnen des Raums. Der Entwicklungsproxy beantwortete den Zugriff auf den Signalisierungsendpunkt mit HTTP 403. |
 | Abhängigkeiten | `npm audit --audit-level=high` und `npm audit --omit=dev --audit-level=high` meldeten keine bekannten Schwachstellen. |
-| Offene Prüfungen | Physische Mobilgeräte, Safari, Firefox, zwei unabhängige Internetanschlüsse, Hintergrunddrosselung und längerer Lastbetrieb. Für THESLIBBI fehlen Spielpartien und Regeltests für den Spielmodus. |
+| Offene Prüfungen | Direkte WebRTC-Verbindung, physische Mobilgeräte, Safari, Firefox, zwei unabhängige Internetanschlüsse, Hintergrunddrosselung und längerer Lastbetrieb. |
 
 [Build, direkte Verbindungen, PeerJS und Pages im GitHub-Workflow](https://github.com/GTheCreator1/Spiele-Plattform/actions/workflows/pages.yml)
 

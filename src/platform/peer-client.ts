@@ -2,7 +2,7 @@ import { Peer, SerializationType } from 'peerjs'
 import type { DataConnection, PeerOptions } from 'peerjs'
 import { parse } from 'valibot'
 import type { AuditStatus, Lobby, Message, OnlineAction, RoomSettings } from '../../shared/online'
-import { invitePattern, validNickname } from '../../shared/online'
+import { invitePattern, isGameMove, validNickname } from '../../shared/online'
 import { digest, randomFraction, randomHex } from '../../shared/random'
 import { chatLimit, Room } from '../../shared/room'
 import { fromHost, parseAction } from '../../shared/wire'
@@ -220,7 +220,7 @@ export class PeerSession {
       window.clearTimeout(pending.timer)
       this.pending.delete(message.request)
       if (message.error) return pending.reject(new Error(message.error))
-      if (pending.action.type === 'xeri-play' || pending.action.type === 'cambio-play') audit.acknowledge(pending.action)
+      if (isGameMove(pending.action)) audit.acknowledge(pending.action)
       pending.resolve()
     } else if (message.type === 'proof' || message.type === 'proof-events' || message.type === 'proof-unavailable') {
       const lobby = this.state.lobby

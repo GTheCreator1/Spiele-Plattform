@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { AuditStatus, Message, OnlineAction } from '../../../shared/online'
 import { invitePattern, onlineNames, validNickname } from '../../../shared/online'
 import { CambioTable } from '../../games/ab6super6/CambioTable'
+import { TheslibbiTable } from '../../games/theslibbi/TheslibbiTable'
 import { OnlineXeri } from '../../games/xeri/OnlineXeri'
 import type { RoomStatus } from '../../platform/peer-client'
 import { storedGuest } from '../../platform/peer-storage'
@@ -127,7 +128,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               {theslibbi ? (
                 <header className="theslibbi-table-intro">
                   <h2>Spielplätze</h2>
-                  <p>Die Partie ist noch in Entwicklung.</p>
+                  <p>Vier Karten pro Person. Sortiert sie gemeinsam.</p>
                 </header>
               ) : <h2>Spielplätze</h2>}
               {lobby.seats.map((seat) => (
@@ -153,7 +154,7 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               ) : (
                 <div className="online-actions">
                   {self && <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-ready', ready: !self.ready })}>{self.ready ? 'Warten' : 'Bereit'}</button>}
-                  {room.host && !theslibbi && <button className="button button-primary" disabled={busy || !allReady} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
+                  {room.host && <button className="button button-primary" disabled={busy || !allReady} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
                   {theslibbi && allReady && room.connected && <p className="theslibbi-table-ready">Alle Plätze sind verbunden und bereit.</p>}
                 </div>
               )}
@@ -162,7 +163,11 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
             <>
               {lobby.xeri && <OnlineXeri key={lobby.match} lobby={lobby} submit={submit} busy={turnBlocked} />}
               {lobby.cambio && <CambioTable key={lobby.match} lobby={lobby} submit={submit} busy={turnBlocked} />}
-              {lobby.phase === 'finished' && room.audit !== 'idle' && <p className={room.audit === 'failed' ? 'inline-error' : 'muted'}>{checks[room.audit]}</p>}
+              {lobby.theslibbi && lobby.match && (
+                <TheslibbiTable key={lobby.match} view={lobby.theslibbi} seats={lobby.seats} match={lobby.match} submit={submit} busy={turnBlocked} />
+              )}
+              {lobby.phase === 'finished' && room.audit !== 'idle' && lobby.theslibbi?.outcome !== 'loss' &&
+                <p className={room.audit === 'failed' ? 'inline-error' : 'muted'}>{checks[room.audit]}</p>}
               {room.host && lobby.phase === 'finished' && (
                 <button className="button button-secondary" disabled={busy || room.audit === 'checking'} onClick={() => submit({ type: 'lobby-rematch' })}>Zurück zur Lobby</button>
               )}
@@ -179,7 +184,12 @@ function ActiveLobby({ room }: { room: RoomStatus }) {
               </fieldset>
             </section>
           )}
-          <LobbyChat key={lobby.id} messages={room.messages} live={room.connected} title={theslibbi ? 'Lobbychat' : undefined} />
+          {theslibbi && lobby.phase === 'playing' ? (
+            <section className="surface settings-panel">
+              <h2>Lobbychat</h2>
+              <p className="muted">Der Chat pausiert während der Sortierrunde.</p>
+            </section>
+          ) : <LobbyChat key={lobby.id} messages={room.messages} live={room.connected} title={theslibbi ? 'Lobbychat' : undefined} />}
         </aside>
       </div>
     </div>

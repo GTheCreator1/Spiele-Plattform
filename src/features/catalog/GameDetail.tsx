@@ -4,7 +4,6 @@ import { Link, useParams } from 'react-router-dom'
 import type { OnlineGame } from '../../../shared/online'
 import { useOnline } from '../../platform/online'
 import { RoomForm } from '../community/RoomForm'
-import { TheslibbiCardPreview } from '../../games/theslibbi/TheslibbiCard'
 import '../../styles/community.css'
 import { difficulties } from '../../games/xeri/difficulty'
 import type { Difficulty } from '../../games/xeri/difficulty'
@@ -49,16 +48,13 @@ export default function GameDetail() {
         {game.id === 'xeri' ? <XeriModes /> : (
           <section className="surface detail-panel" aria-labelledby="private-lobby-heading">
             <h2 id="private-lobby-heading">Private Lobby</h2>
-            {game.id === 'theslibbi' && <p className="muted">Lade bis zu drei Freunde ein. Die Partie ist noch in Entwicklung.</p>}
             <OnlineModes key={game.id} game={game.id} />
           </section>
         )}
-        {game.id === 'theslibbi' ? <TheslibbiCardPreview /> : (
-          <section className="surface detail-panel" aria-labelledby="rule-heading">
-            <div className="panel-heading"><Info size={20} aria-hidden="true" /><h2 id="rule-heading">Spielregeln</h2></div>
-            <ul className="rule-list">{game.notes.map((note) => <li key={note}>{note}</li>)}</ul>
-          </section>
-        )}
+        <section className="surface detail-panel" aria-labelledby="rule-heading">
+          <div className="panel-heading"><Info size={20} aria-hidden="true" /><h2 id="rule-heading">Spielregeln</h2></div>
+          <ul className="rule-list">{game.notes.map((note) => <li key={note}>{note}</li>)}</ul>
+        </section>
       </div>
       <Link className="text-link" to="/spiele">Zur Spielebibliothek</Link>
     </div>

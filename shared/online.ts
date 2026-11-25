@@ -1,10 +1,10 @@
 import type { Card, GameView } from '../vendor/xeri/game/engine.js'
 import type { CambioAction, CambioView } from '../src/games/ab6super6/engine.ts'
+import { theslibbiSeats } from '../src/games/theslibbi/engine.ts'
+import type { TheslibbiView } from '../src/games/theslibbi/engine.ts'
 
 export type Player = { id: string; name: string }
-export const playableGames = ['xeri', 'ab6super6'] as const
-export const roomGames = [...playableGames, 'theslibbi'] as const
-export type PlayableGame = typeof playableGames[number]
+export const roomGames = ['xeri', 'ab6super6', 'theslibbi'] as const
 export type OnlineGame = typeof roomGames[number]
 export type Seat = { seat: number; player: Player | null; bot: boolean; ready: boolean; online: boolean }
 export type Message = { id: number; from: Player; text: string; sentAt: number }
@@ -12,7 +12,7 @@ export type RoomSettings = { game: OnlineGame; capacity: number }
 
 export type Round = {
   id: string
-  game: PlayableGame
+  game: OnlineGame
   capacity: number
   humans: number[]
 }
@@ -28,6 +28,7 @@ export type Lobby = RoomSettings & {
   match: string | null
   xeri: GameView | null
   cambio: CambioView | null
+  theslibbi?: TheslibbiView
   seeding: Seeding | null
   notice: string
 }
@@ -35,6 +36,7 @@ export type Lobby = RoomSettings & {
 export type GameMove =
   | { type: 'xeri-play'; id: string; match: string; version: number; card: Card }
   | { type: 'cambio-play'; id: string; match: string; version: number; action: CambioAction }
+  | { type: 'theslibbi-play'; id: string; match: string; version: number; card: number }
 
 export type OnlineAction =
   | { type: 'lobby-settings'; settings: RoomSettings }
@@ -58,10 +60,12 @@ export const invitePattern = /^[0-9a-f]{48}$/
 export const matchPattern = /^[0-9a-f]{32}$/
 export const seedPattern = /^[0-9a-f]{64}$/
 export const onlineNames = { xeri: 'Xeri (Ξερή)', ab6super6: 'ab6super6', theslibbi: 'THESLIBBI' } satisfies Record<OnlineGame, string>
-export const capacities = { xeri: [2, 4], ab6super6: [2, 3, 4, 5, 6], theslibbi: [2, 3, 4] } satisfies Record<OnlineGame, number[]>
+export const capacities: Record<OnlineGame, readonly number[]> = {
+  xeri: [2, 4], ab6super6: [2, 3, 4, 5, 6], theslibbi: theslibbiSeats,
+}
 
-export function isPlayableGame(game: OnlineGame): game is PlayableGame {
-  return playableGames.some((id) => id === game)
+export function isGameMove(action: OnlineAction): action is GameMove {
+  return action.type === 'xeri-play' || action.type === 'cambio-play' || action.type === 'theslibbi-play'
 }
 
 export function validNickname(name: string) {

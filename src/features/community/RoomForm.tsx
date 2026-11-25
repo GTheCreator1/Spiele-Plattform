@@ -38,7 +38,7 @@ export function RoomFields({ fixedGame, settings, onChange }: {
   return (
     <>
       {!fixedGame && <label>Spiel<select value={game} onChange={(event) => onChange({ game: event.target.value as OnlineGame, capacity: 2 })}>
-        {Object.entries(onlineNames).map(([id, title]) => <option value={id} key={id}>{id === 'theslibbi' ? `${title} (nur Lobby)` : title}</option>)}
+        {Object.entries(onlineNames).map(([id, title]) => <option value={id} key={id}>{title}</option>)}
       </select></label>}
       <label>Spielerplätze<select value={capacity} onChange={(event) => onChange({ game, capacity: Number(event.target.value) })}>
         {capacities[game].map((size) => <option value={size} key={size}>{game === 'xeri' ? (size === 2 ? '1 gegen 1' : '2 gegen 2') : `${size} Spieler`}</option>)}

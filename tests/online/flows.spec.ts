@@ -8,10 +8,46 @@ function messageBox(page: Page) {
   return page.getByRole('textbox', { name: 'Nachricht', exact: true })
 }
 
-test('THESLIBBI synchronisiert eine private Vierer-Lobby, Chat und Wiedereinstieg', async ({ browser, baseURL }, info) => {
+function ownNumbers(page: Page) {
+  return page.getByRole('region', { name: 'Deine Handkarten' }).locator('.theslibbi-card-value')
+}
+
+function playNumber(page: Page, card?: number) {
+  return page.getByRole('button', { name: card === undefined ? /Karte \d+ ausspielen/ : `Karte ${card} ausspielen`, exact: true })
+}
+
+async function startNumberRound(pages: Page[]) {
+  await pages[0]!.getByRole('button', { name: 'Partie starten', exact: true }).click()
+  const hands = await Promise.all(pages.map(async (page, seat) => {
+    await expect(ownNumbers(page)).toHaveCount(4)
+    await expect(page.getByRole('list', { name: 'Andere Hände' }).locator('.theslibbi-card-value')).toHaveCount(0)
+    const cards = await ownNumbers(page).allTextContents()
+    return cards.map((card) => ({ seat, card: Number(card) }))
+  }))
+  const dealt = hands.flat().sort((first, second) => first.card - second.card)
+  expect(new Set(dealt.map(({ card }) => card)).size).toBe(dealt.length)
+  return dealt
+}
+
+async function completeNumberRound(pages: Page[], dealt: Awaited<ReturnType<typeof startNumberRound>>) {
+  for (const [index, { seat, card }] of dealt.entries()) {
+    const page = pages[seat]!
+    await expect(page.getByText(`${index} von ${dealt.length} abgelegt`, { exact: true })).toBeVisible()
+    await playNumber(page, card).click()
+  }
+  for (const page of pages) {
+    await expect(page.getByRole('heading', { name: 'Runde gewonnen' })).toBeVisible()
+    await expect(page.getByText(verified, { exact: true })).toBeVisible()
+    const pile = page.getByRole('region', { name: 'Gemeinsame Ablage' })
+    await expect(pile.getByRole('listitem')).toHaveText(dealt.slice(0, -1).map(({ card }) => String(card)))
+    await expect(pile.getByRole('img', { name: `Zahlenkarte ${dealt.at(-1)!.card}` })).toBeVisible()
+  }
+}
+
+test('THESLIBBI spielt zu viert mit Fehler, Chatpause und Wiedereinstieg bis zum Sieg', async ({ browser, baseURL }, info) => {
   const secondBrowser = await chromium.launch(info.project.use.launchOptions)
   const contexts = await Promise.all([
-    browser.newContext({ baseURL }),
+    browser.newContext({ baseURL, reducedMotion: 'no-preference' }),
     secondBrowser.newContext({ ...devices['iPhone 13'], baseURL }),
     secondBrowser.newContext({ ...devices['iPad (gen 7)'], baseURL }),
     browser.newContext({ baseURL }),
@@ -22,18 +58,20 @@ test('THESLIBBI synchronisiert eine private Vierer-Lobby, Chat und Wiedereinstie
       hostContext.newPage(), phoneContext.newPage(), tabletContext.newPage(), guestContext.newPage(),
     ])
     const link = await createRoom(host, 'Mika', 'theslibbi', 4)
+    await expect(host.getByRole('button', { name: 'Partie starten', exact: true })).toBeDisabled()
     await joinRoom(phone, 'Kim', link)
     await joinRoom(tablet, 'Toni', link)
     await joinRoom(guest, 'Robin', link)
 
     const ready = 'Alle Plätze sind verbunden und bereit.'
     const guests = [phone, tablet, guest]
-    for (const page of [host, ...guests]) {
+    const pages = [host, ...guests]
+    for (const page of pages) {
       await expect(page.getByRole('heading', { name: 'THESLIBBI', exact: true })).toBeVisible()
       await expect(page.getByText('Privater Raum · 4/4 Plätze')).toBeVisible()
       await expect(page.getByText(ready, { exact: true })).toBeVisible()
       await expect(page.locator('.member-row strong')).toHaveText(['Mika', 'Kim', 'Toni', 'Robin'])
-      await expect(page.getByRole('button', { name: 'Partie starten', exact: true })).toHaveCount(0)
+      if (page !== host) await expect(page.getByRole('button', { name: 'Partie starten', exact: true })).toHaveCount(0)
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
 
@@ -48,16 +86,39 @@ test('THESLIBBI synchronisiert eine private Vierer-Lobby, Chat und Wiedereinstie
     await phone.getByRole('button', { name: 'Öffnen (1)', exact: true }).click()
     await expect(phone.getByRole('list', { name: 'Chatnachrichten' }).getByText('Alle da?')).toBeVisible()
 
+    const dealt = await startNumberRound(pages)
+    await phone.setViewportSize({ width: 320, height: 740 })
+    await phone.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(phone.locator('.theslibbi-hand-slot').first()).toHaveCSS('animation-name', 'none')
+    await expect(host.locator('.theslibbi-hand-slot').first()).toHaveCSS('animation-name', 'theslibbi-deal')
+    for (const page of pages) {
+      await expect(page.getByText('Der Chat pausiert während der Sortierrunde.')).toBeVisible()
+      await expect(messageBox(page)).toHaveCount(0)
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+
+    const guestHand = await ownNumbers(guest).allTextContents()
     await guestContext.setOffline(true)
-    const robinOn = (page: Page) => page.locator('.member-row').filter({ hasText: 'Robin' })
     for (const page of [host, tablet]) {
-      await expect(robinOn(page).getByText('Getrennt', { exact: true })).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByText(ready, { exact: true })).toHaveCount(0)
+      await expect(page.getByText('Die Partie wartet auf alle Mitspieler.')).toBeVisible({ timeout: 15_000 })
+      await expect(playNumber(page)).toBeDisabled()
     }
     await guestContext.setOffline(false)
     await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 20_000 })
-    await expect(robinOn(host).getByText('Bereit', { exact: true })).toBeVisible()
-    await expect(tablet.getByText(ready, { exact: true })).toBeVisible()
+    await expect(playNumber(host)).toBeEnabled()
+    await expect(ownNumbers(guest)).toHaveText(guestHand)
+
+    const wrong = dealt.find(({ seat }) => seat !== dealt[0]!.seat)!
+    await playNumber(pages[wrong.seat]!, wrong.card).click()
+    for (const page of pages) {
+      await expect(page.getByText('3 von 4 Leben')).toBeVisible()
+      await expect(page.getByText('0 von 16 abgelegt')).toBeVisible()
+    }
+    await expect(playNumber(pages[wrong.seat]!, wrong.card)).toBeVisible()
+    await completeNumberRound(pages, dealt)
+    await expect(phone.getByRole('heading', { name: 'Lobbychat' })).toBeVisible()
+    await expect(phone.getByText('Der Chat pausiert während der Sortierrunde.')).toHaveCount(0)
+    await host.getByRole('button', { name: 'Zurück zur Lobby' }).click()
     await guest.getByRole('button', { name: 'Raum verlassen', exact: true }).click()
     await expect(host.getByText('Privater Raum · 3/4 Plätze')).toBeVisible()
     await expect(phone.getByText('Freier Platz', { exact: true })).toHaveCount(1)
@@ -66,6 +127,49 @@ test('THESLIBBI synchronisiert eine private Vierer-Lobby, Chat und Wiedereinstie
   } finally {
     await Promise.all(contexts.map((context) => context.close()))
     await secondBrowser.close()
+  }
+})
+
+for (const size of [2, 3]) {
+  test(`THESLIBBI beendet eine Sortierrunde mit ${size} Personen`, async ({ browser, baseURL }) => {
+    const contexts = await Promise.all(Array.from({ length: size }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
+    try {
+      const pages = await Promise.all(contexts.map((context) => context.newPage()))
+      const link = await createRoom(pages[0]!, 'Mika', 'theslibbi', size)
+      for (const [seat, page] of pages.slice(1).entries()) await joinRoom(page, `Gast ${seat + 1}`, link)
+      await completeNumberRound(pages, await startNumberRound(pages))
+    } finally {
+      await Promise.all(contexts.map((context) => context.close()))
+    }
+  })
+}
+
+test('THESLIBBI beendet die Runde bei null Leben und zeigt weiterhin nur die eigene Hand', async ({ browser, baseURL }) => {
+  const contexts = await Promise.all(Array.from({ length: 2 }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
+  try {
+    const pages = await Promise.all(contexts.map((context) => context.newPage()))
+    const link = await createRoom(pages[0]!, 'Mika', 'theslibbi', 2)
+    await joinRoom(pages[1]!, 'Kim', link)
+    const dealt = await startNumberRound(pages)
+    const wrong = dealt.find(({ seat }) => seat !== dealt[0]!.seat)!
+    const player = pages[wrong.seat]!
+    await playNumber(player, wrong.card).click()
+    await expect(player.getByText('1 von 2 Leben')).toBeVisible()
+    await playNumber(player, wrong.card).click()
+    for (const page of pages) {
+      await expect(page.getByRole('heading', { name: 'Runde verloren' })).toBeVisible()
+      await expect(playNumber(page)).toHaveCount(0)
+      await expect(ownNumbers(page)).toHaveCount(4)
+      await expect(page.getByRole('list', { name: 'Andere Hände' }).locator('.theslibbi-card-value')).toHaveCount(0)
+      await expect(page.getByText(verified, { exact: true })).toHaveCount(0)
+    }
+    await pages[0]!.getByRole('button', { name: 'Zurück zur Lobby' }).click()
+    await pages[1]!.getByRole('button', { name: 'Bereit', exact: true }).click()
+    const nextDeal = await startNumberRound(pages)
+    expect(nextDeal).not.toEqual(dealt)
+    await completeNumberRound(pages, nextDeal)
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
   }
 })
 

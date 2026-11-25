@@ -41,14 +41,17 @@ export class PeerAudit {
       this.sent = ''
       this.status = 'idle'
     }
-    if (lobby.xeri || lobby.cambio) {
-      const version = (lobby.xeri ?? lobby.cambio)!.version
+    const view = lobby.xeri ?? lobby.cambio ?? lobby.theslibbi
+    if (view) {
+      const { version } = view
       const hash = viewDigest(lobby)
       const prior = this.observations.get(version)
       if (prior && prior !== hash) this.conflicting = true
       if (prior || this.observations.size <= maxAuditEvents) this.observations.set(version, hash)
       else this.overflowed = true
-      if (lobby.phase === 'finished' && this.status === 'idle') this.status = this.overflowed ? 'unavailable' : 'checking'
+      if (lobby.phase === 'finished' && this.status === 'idle') {
+        this.status = this.overflowed || lobby.theslibbi?.outcome === 'loss' ? 'unavailable' : 'checking'
+      }
       return
     }
     const seeding = lobby.seeding
@@ -96,6 +99,7 @@ export class PeerAudit {
 
   begin(lobby: Lobby, proof: ProofStart) {
     if (lobby.phase !== 'finished' || lobby.match !== proof.round.id) throw new Error('Prüfdaten vor Abschluss der Partie.')
+    if (lobby.theslibbi?.outcome === 'loss') throw new Error('Bei einer Niederlage bleiben ungespielte Karten privat.')
     this.proof = proof
     this.events = []
     if (proof.events === 0) this.verify(lobby)

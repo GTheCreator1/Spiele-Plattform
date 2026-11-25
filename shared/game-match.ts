@@ -3,10 +3,15 @@ import { DECK, newGame, playCard, viewFor } from '../vendor/xeri/game/engine.js'
 import type { GameState } from '../vendor/xeri/game/engine.js'
 import { advanceCambioClock, newCambio, playCambio, viewCambio } from '../src/games/ab6super6/engine.ts'
 import type { CambioState } from '../src/games/ab6super6/engine.ts'
+import { newTheslibbi, playTheslibbi, viewTheslibbi } from '../src/games/theslibbi/engine.ts'
+import type { TheslibbiState } from '../src/games/theslibbi/engine.ts'
 import type { Commitment, Contribution, Lobby, MatchEvent, ProofStart, Round } from './online.ts'
 import { digest, roundRandom, shuffleCards } from './random.ts'
 
-type State = { type: 'xeri'; data: GameState } | { type: 'ab6super6'; data: CambioState }
+type State =
+  | { type: 'xeri'; data: GameState }
+  | { type: 'ab6super6'; data: CambioState }
+  | { type: 'theslibbi'; data: TheslibbiState }
 export const maxAuditEvents = 4096
 
 function requireMove(condition: unknown, message: string): asserts condition {
@@ -43,11 +48,13 @@ function botTurns(game: GameState, round: Round, seed: string) {
 export function newMatch(round: Round, seed: string): State {
   const { index } = roundRandom(seed, 'deal', 0)
   if (round.game === 'ab6super6') return { type: 'ab6super6', data: newCambio(round.capacity, index) }
+  if (round.game === 'theslibbi') return { type: 'theslibbi', data: newTheslibbi(round.capacity, index) }
   const seats = round.capacity === 4 ? 4 : 2
   return { type: 'xeri', data: botTurns(newGame(seats, shuffleCards(DECK, index)), round, seed) }
 }
 
 export function matchFinished(state: State) {
+  if (state.type === 'theslibbi') return state.data.outcome !== null
   return state.type === 'xeri' ? state.data.finished : state.data.phase === 'finished'
 }
 
@@ -67,6 +74,11 @@ export function applyMatchEvent(state: State, round: Round, seed: string, event:
     requireMove(next, 'Diese Karte kannst du gerade nicht ausspielen.')
     return { type: 'xeri', data: botTurns(next, round, seed) }
   }
+  if (state.type === 'theslibbi') {
+    requireMove(move.type === 'theslibbi-play', 'Diese Aktion gehört zu einem anderen Spiel.')
+    requireMove(move.version === state.data.version, 'Der Spielstand hat sich geändert.')
+    return { type: 'theslibbi', data: playTheslibbi(state.data, seat, move.card) }
+  }
   requireMove(move.type === 'cambio-play', 'Diese Aktion gehört zu einem anderen Spiel.')
   const action = move.action
   requireMove(move.version === state.data.version || action.type === 'throw' || action.type === 'ready' ||
@@ -75,16 +87,17 @@ export function applyMatchEvent(state: State, round: Round, seed: string, event:
   return { type: 'ab6super6', data: playCambio(state.data, seat, action, at, index) }
 }
 
-export function privateViews(state: State | null, seat: number, now: number) {
+export function privateViews(state: State | null, seat: number, now: number): Pick<Lobby, 'xeri' | 'cambio' | 'theslibbi'> {
   return {
     xeri: state?.type === 'xeri' ? viewFor(state.data, seat) : null,
     cambio: state?.type === 'ab6super6' ? viewCambio(state.data, seat, now) : null,
+    ...(state?.type === 'theslibbi' ? { theslibbi: viewTheslibbi(state.data, seat) } : {}),
   }
 }
 
-export function viewDigest(lobby: Pick<Lobby, 'xeri' | 'cambio'>) {
-  const { cambio, xeri } = lobby
-  return digest(xeri ?? (cambio ? { ...cambio, now: 0 } : null))
+export function viewDigest(lobby: Pick<Lobby, 'xeri' | 'cambio' | 'theslibbi'>) {
+  const { cambio, xeri, theslibbi } = lobby
+  return digest(xeri ?? (cambio ? { ...cambio, now: 0 } : theslibbi ?? null))
 }
 
 export function auditMatch(room: string, proof: ProofStart, events: MatchEvent[], seat: number,

@@ -14,16 +14,3 @@ export function TheslibbiCard({ value }: { value: number | null }) {
     </span>
   )
 }
-
-export function TheslibbiCardPreview() {
-  return (
-    <section className="surface detail-panel theslibbi-preview" aria-labelledby="theslibbi-card-heading">
-      <h2 id="theslibbi-card-heading">Kartenvorschau</h2>
-      <div className="theslibbi-preview-cards" role="group" aria-label="Beispielkarten">
-        <TheslibbiCard value={18} />
-        <TheslibbiCard value={null} />
-        <TheslibbiCard value={76} />
-      </div>
-    </section>
-  )
-}

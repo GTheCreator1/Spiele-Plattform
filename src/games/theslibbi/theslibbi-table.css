@@ -1,0 +1,126 @@
+.theslibbi-table {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(.85rem, 3vw, 1.6rem);
+  border-color: #483a60;
+  background: #201b31;
+}
+
+.theslibbi-round-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.theslibbi-round-header h2 { font-size: 1.4rem; }
+.theslibbi-round-stats { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.theslibbi-round-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .35rem .58rem;
+  background: #312644;
+  border: 1px solid #55436c;
+  border-radius: 8px;
+  font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+}
+.theslibbi-round-stats svg { color: #ffaec4; }
+
+.theslibbi-felt {
+  display: grid;
+  gap: .85rem;
+  padding: clamp(.7rem, 2vw, 1.1rem);
+  border: 1px solid #5a4877;
+  border-radius: 15px;
+  background: radial-gradient(ellipse at 50% 22%, #4b386a, #29213f 75%);
+}
+.theslibbi-other-hands {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.theslibbi-other-hands li {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: .24rem;
+  flex: 1 1 4.1rem;
+  min-width: 0;
+  max-width: 12rem;
+  padding: .45rem .3rem;
+  border: 1px solid #a88dc53b;
+  border-radius: 9px;
+  background: #201a3280;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.theslibbi-other-hands li > span:last-child { font-size: .82rem; color: #e2d5f0; }
+.theslibbi-mini-back { width: 1.35rem; margin-block: .16rem; transform: rotate(-9deg); }
+.theslibbi-mini-back .theslibbi-card { border-radius: 4px; }
+
+.theslibbi-pile { display: grid; justify-items: center; gap: .48rem; }
+.theslibbi-pile h3, .theslibbi-hand-area h3 { font-size: 1rem; }
+.theslibbi-empty-pile, .theslibbi-pile-top { width: 4.5rem; aspect-ratio: 5 / 7; }
+.theslibbi-empty-pile {
+  display: grid;
+  place-items: center;
+  border: 1px dashed #9e86b2;
+  border-radius: 8px;
+  color: #ddd2eb;
+  font-size: .8rem;
+}
+.theslibbi-history {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.theslibbi-history li {
+  min-width: 1.55rem;
+  padding: .14rem .25rem;
+  border: 1px solid #55456e;
+  border-radius: 5px;
+  background: #28203d;
+  color: #eee4f9;
+  font-size: .85rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.theslibbi-feedback { padding: .75rem; border-radius: 9px; background: #2d2340; text-align: center; }
+.theslibbi-feedback p, .theslibbi-hand-area p { color: #e0d3ed; }
+.theslibbi-hand-area { display: grid; gap: .6rem; justify-items: center; min-width: 0; }
+.theslibbi-hand { display: flex; justify-content: center; gap: clamp(.4rem, 1.6vw, .68rem); width: 100%; }
+.theslibbi-hand-slot { flex: 0 1 4.9rem; min-width: 0; }
+.theslibbi-play-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  transition: transform 150ms ease;
+}
+.theslibbi-play-card:enabled {
+  cursor: pointer;
+  box-shadow: 0 0 0 2px #c1a2f0, 0 4px 14px #10092099;
+}
+.theslibbi-play-card:enabled:hover { transform: translateY(-.22rem); }
+.theslibbi-play-card:focus-visible { outline: 2px solid #fff3e8; outline-offset: 4px; }
+.theslibbi-hand-slot, .theslibbi-pile-top { animation: theslibbi-deal 240ms cubic-bezier(.24,.78,.28,1) backwards; }
+.theslibbi-hand-slot:nth-child(2) { animation-delay: 40ms; }
+.theslibbi-hand-slot:nth-child(3) { animation-delay: 80ms; }
+.theslibbi-hand-slot:nth-child(4) { animation-delay: 120ms; }
+
+@keyframes theslibbi-deal {
+  from { opacity: 0; transform: translateY(-.65rem) scale(.96); }
+}

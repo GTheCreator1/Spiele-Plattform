@@ -1,6 +1,6 @@
 import { applyMatchEvent, commitSecret, matchFinished, maxAuditEvents, newMatch, privateViews, seedFor } from './game-match.ts'
 import type { Commitment, Contribution, GameMove, Lobby, MatchEvent, Message, OnlineAction, Player, ProofStart, RoomSettings, Round } from './online.ts'
-import { isPlayableGame, seedPattern, validNickname, validSettings } from './online.ts'
+import { isGameMove, seedPattern, validNickname, validSettings } from './online.ts'
 import { digest, randomHex } from './random.ts'
 
 type Occupant = {
@@ -120,7 +120,9 @@ export class Room {
   proof() {
     const match = this.match
     if (!match || this.phase !== 'finished') return null
-    return match.proofComplete
+    // Ein offengelegter Mischseed würde auch verlorene, verdeckte Hände rekonstruierbar machen.
+    const hasHiddenHands = match.state.type === 'theslibbi' && match.state.data.outcome === 'loss'
+    return match.proofComplete && !hasHiddenHands
       ? { match: match.round.id, proof: { ...match.proof, events: match.events.length }, events: match.events.slice() }
       : { match: match.round.id, proof: null, events: [] }
   }
@@ -161,12 +163,10 @@ export class Room {
   }
 
   private start() {
-    const { game, capacity } = this.settings
-    need(isPlayableGame(game), 'Für THESLIBBI ist derzeit die Lobby verfügbar.')
     need(this.phase === 'open' && this.seated() && this.seats.every((seat) => seat?.ready),
       'Alle Plätze müssen verbunden und bereit sein.')
     const round = {
-      id: randomHex(16), game, capacity,
+      id: randomHex(16), ...this.settings,
       humans: this.seats.flatMap((seat, index) => seat?.player ? [index] : []),
     }
     const secret = randomHex(32)
@@ -236,6 +236,7 @@ export class Room {
       need(match.receipts.get(receipt) === hash, 'Diese Aktions-ID wurde bereits benutzt.')
       return false
     }
+    need(match.state.type !== 'theslibbi' || this.phase !== 'finished', 'Die Sortierrunde ist beendet.')
     need(this.phase === 'playing' && this.seated(), 'Die Partie wartet auf die Verbindung aller Mitspieler.')
     const event = { seat, move, at: this.now() }
     match.state = applyMatchEvent(match.state, match.round, match.seed, event)
@@ -267,10 +268,11 @@ export class Room {
     need(member?.player && member.online, 'Dieser Sitz gehört zu keinem verbundenen Mitspieler.')
     const { type } = action
     if (type === 'chat') {
+      need(this.settings.game !== 'theslibbi' || this.phase !== 'playing', 'Der Chat pausiert während der Sortierrunde.')
       const message = this.sendChat(member.player, action.id, action.text)
       return { changed: false, message: message ?? undefined }
     }
-    if (type === 'xeri-play' || type === 'cambio-play') return { changed: this.play(seat, action) }
+    if (isGameMove(action)) return { changed: this.play(seat, action) }
     if (type === 'lobby-ready') {
       need(this.phase === 'open', 'Die nächste Partie wird bereits vorbereitet.')
       member.ready = action.ready
