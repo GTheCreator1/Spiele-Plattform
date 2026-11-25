@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 import { isCard } from '../vendor/xeri/game/engine.js'
 import type { Card } from '../vendor/xeri/game/engine.js'
-import { theslibbiDeckSize, theslibbiLevelCount, theslibbiMaxLevel, theslibbiScore, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
+import { theslibbiDeckSize, theslibbiLevelCount, theslibbiMaxLevel, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
 import type { TheslibbiMistake } from '../src/games/theslibbi/engine.ts'
 import { invitePattern, matchPattern, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
 import { maxAuditEvents } from './game-match.ts'
@@ -133,17 +133,19 @@ function validTheslibbiMistakes(mistakes: TheslibbiMistake[], players: number, l
 
 const theslibbiView = v.pipe(object({
   seat: index, version: natural, lives: natural, outcome: v.nullable(v.picklist(['win', 'loss'])),
-  level: levelNumber, levelCount: levelNumber, score: natural,
+  level: levelNumber, levelCount: levelNumber,
   hand: v.pipe(v.array(numberCard), v.maxLength(theslibbiMaxLevel)),
   handCounts: v.pipe(v.array(v.pipe(natural, v.maxValue(theslibbiMaxLevel))), v.maxLength(maxTheslibbiSeats)),
   played: v.pipe(v.array(numberCard), v.maxLength(maxTheslibbiSeats * theslibbiMaxLevel)),
   mistakes: v.pipe(v.array(theslibbiMistake), v.maxLength(maxTheslibbiSeats)),
   last: v.nullable(theslibbiLastAction),
-}), v.check(({ seat, hand, handCounts, level, levelCount, score, lives, played, mistakes, version, outcome, last }) => {
+}), v.check(({ seat, hand, handCounts, level, levelCount, lives, played, mistakes, version, outcome, last }) => {
   const players = handCounts.length
   const remaining = handCounts.reduce((sum, count) => sum + count, 0)
+  const previousLevelCards = players * (level - 1) * level / 2
+  const skippedCards = mistakes.reduce((sum, mistake) => sum + mistake.skipped.length, 0)
   if (levelCount !== theslibbiLevelCount(players) || level > levelCount || handCounts.some((count) => count > level) ||
-    score !== theslibbiScore(players, level, played.length, mistakes) || version !== score + mistakes.length ||
+    version !== previousLevelCards + played.length - skippedCards ||
     handCounts[seat] !== hand.length || lives + mistakes.length !== players || remaining + played.length !== players * level ||
     !ascending(played, 0) || !ascending(hand, played.at(-1) ?? 0) ||
     !validTheslibbiMistakes(mistakes, players, level, played) ||

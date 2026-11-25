@@ -32,7 +32,6 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
         <div className="theslibbi-round-stats">
           <span><Heart size={18} aria-hidden="true" /> {view.lives} von {seats.length} Leben</span>
           <span>{view.played.length} von {total} abgelegt</span>
-          <span>{view.score} {view.score === 1 ? 'Punkt' : 'Punkte'}</span>
         </div>
       </header>
       <div className="theslibbi-felt">

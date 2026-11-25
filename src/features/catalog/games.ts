@@ -57,7 +57,7 @@ export const games: Game[] = [
       'Im ersten Level erhältst du eine Karte aus dem Zahlenbereich 1 bis 100. Mit jedem Level kommt eine Karte pro Person dazu. Du siehst nur deine eigene Hand.',
       'Spielt frei und ohne Zugfolge. Tippe auf deine kleinste Karte, wenn du glaubst, dass sie die kleinste am ganzen Tisch ist.',
       'Ein Fehlwurf kostet das Team ein Leben. Alle übersprungenen niedrigeren Karten werden offen abgelegt. Der Chat pausiert am Spieltisch.',
-      'Legt in jedem Level alle Karten aufsteigend ab. Das nächste Level startet automatisch. Für jede korrekt ausgespielte Karte erhält das Team einen Punkt.',
+      'Legt in jedem Level alle Karten aufsteigend ab. Das nächste Level startet automatisch.',
     ],
   },
   {

@@ -42,25 +42,21 @@ async function playNumberLevel(pages: Page[], dealt: Awaited<ReturnType<typeof r
   }
 }
 
-async function completeNumberRound(pages: Page[], levelCount: number, lives: number, startLevel = 1, initialScore = 0) {
+async function completeNumberRound(pages: Page[], levelCount: number, lives: number, startLevel = 1) {
   let dealt: Awaited<ReturnType<typeof readNumberLevel>> = []
-  let score = initialScore
   for (let level = startLevel; level <= levelCount; level++) {
     dealt = await readNumberLevel(pages, level, levelCount)
     for (const page of pages) {
-      await expect(page.getByText(score === 1 ? '1 Punkt' : `${score} Punkte`, { exact: true })).toBeVisible()
       await expect(page.getByText(`${lives} von ${pages.length} Leben`, { exact: true })).toBeVisible()
       if (level === levelCount) {
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       }
     }
     await playNumberLevel(pages, dealt)
-    score += dealt.length
   }
   for (const page of pages) {
     await expect(page.getByRole('heading', { name: 'Runde gewonnen' })).toBeVisible()
     await expect(page.getByText(verified, { exact: true })).toBeVisible()
-    await expect(page.getByText(`${score} Punkte`, { exact: true })).toBeVisible()
     const pile = page.getByRole('region', { name: 'Gemeinsame Ablage' })
     await expect(pile.getByRole('listitem')).toHaveText(dealt.slice(0, -1).map(({ card }) => String(card)))
     await expect(pile.getByRole('img', { name: `Zahlenkarte ${dealt.at(-1)!.card}` })).toBeVisible()
@@ -129,7 +125,6 @@ test('THESLIBBI zeigt zu viert dieselben übersprungenen Karten und synchronisie
     for (const page of pages) {
       await expect(page.getByText('3 von 4 Leben')).toBeVisible()
       await expect(page.getByText('3 von 4 abgelegt')).toBeVisible()
-      await expect(page.getByText('0 Punkte', { exact: true })).toBeVisible()
       await expect(skippedCards(page)).toHaveText(skippedLabels)
       await expect(page.getByRole('region', { name: 'Gemeinsame Ablage' }).getByRole('img', { name: `Zahlenkarte ${wrong.card}` })).toBeVisible()
     }
@@ -138,7 +133,12 @@ test('THESLIBBI zeigt zu viert dieselben übersprungenen Karten und synchronisie
     }
     await playNumberLevel(pages, dealt, 3)
     await readNumberLevel(pages, 2, 8)
-    for (const page of pages) await expect(page.getByText(`Level 1 mit der ${remaining.card} abgeschlossen.`)).toBeVisible()
+    for (const page of pages) {
+      await expect(page.getByText(`Level 1 mit der ${remaining.card} abgeschlossen.`)).toBeVisible()
+      const table = page.getByRole('region', { name: 'THESLIBBI-Spieltisch' })
+      await expect(table.getByText('0 von 8 abgelegt', { exact: true })).toBeVisible()
+      await expect(table.getByText(/^\d+ Punkte?$/)).toHaveCount(0)
+    }
 
     const guestHand = await ownNumbers(guest).allTextContents()
     await guestContext.setOffline(true)
@@ -153,7 +153,7 @@ test('THESLIBBI zeigt zu viert dieselben übersprungenen Karten und synchronisie
     await expect(ownNumbers(guest)).toHaveText(guestHand)
     await expect(skippedCards(guest)).toHaveText(skippedLabels)
 
-    await completeNumberRound(pages, 8, 3, 2, 1)
+    await completeNumberRound(pages, 8, 3, 2)
     await expect(phone.getByRole('heading', { name: 'Lobbychat' })).toBeVisible()
     await expect(phone.getByText('Der Chat pausiert während der Sortierrunde.')).toHaveCount(0)
     await host.getByRole('button', { name: 'Zurück zur Lobby' }).click()
@@ -183,7 +183,7 @@ for (const [size, levelCount] of [[2, 12], [3, 10]] as const) {
   })
 }
 
-test('THESLIBBI beendet Level 2 bei null Leben und setzt Level und Punkte bei einer neuen Partie zurück', async ({ browser, baseURL }) => {
+test('THESLIBBI beendet Level 2 bei null Leben und startet eine neue Partie mit vollen Leben', async ({ browser, baseURL }) => {
   const contexts = await Promise.all(Array.from({ length: 2 }, () => browser.newContext({ baseURL, reducedMotion: 'reduce' })))
   try {
     const pages = await Promise.all(contexts.map((context) => context.newPage()))
@@ -200,7 +200,6 @@ test('THESLIBBI beendet Level 2 bei null Leben und setzt Level und Punkte bei ei
       await expect(playNumber(page)).toHaveCount(0)
       const higher = dealt.filter((entry) => entry.seat === seat && entry.card > wrong.card).map(({ card }) => String(card))
       await expect(ownNumbers(page)).toHaveText(higher)
-      await expect(page.getByText('0 Punkte', { exact: true })).toBeVisible()
       await expect(page.getByRole('region', { name: 'Übersprungene Karten' }).getByRole('listitem')).toHaveCount(
         1 + dealt.filter(({ card }) => card < wrong.card).length,
       )
@@ -211,7 +210,6 @@ test('THESLIBBI beendet Level 2 bei null Leben und setzt Level und Punkte bei ei
     await pages[1]!.getByRole('button', { name: 'Bereit', exact: true }).click()
     await startNumberRound(pages, 12)
     for (const page of pages) {
-      await expect(page.getByText('0 Punkte', { exact: true })).toBeVisible()
       await expect(page.getByText('2 von 2 Leben', { exact: true })).toBeVisible()
     }
   } finally {

@@ -10,11 +10,11 @@ In Level 1 erhält jede Person eine private Karte aus dem Zahlenbereich 1 bis 10
 | 3 | 10 | 3 |
 | 4 | 8 | 4 |
 
-Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage und bringt einen Punkt für das Team.
+Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage.
 
-Bei einem Fehlwurf verliert das Team ein Leben. Der Host entfernt alle noch gehaltenen niedrigeren Karten aus den anderen Händen und legt sie mit der Fehlkarte offen ab. Die Anzeige „Übersprungene Karten“ führt die entfernten Werte und ihre bisherigen Besitzer auf. Das Team setzt das Spiel mit den höheren Handkarten fort. Der Punktestand bleibt bei einem Fehlwurf gleich.
+Bei einem Fehlwurf verliert das Team ein Leben. Der Host entfernt alle noch gehaltenen niedrigeren Karten aus den anderen Händen und legt sie mit der Fehlkarte offen ab. Die Anzeige „Übersprungene Karten“ führt die entfernten Werte und ihre bisherigen Besitzer auf. Das Team setzt das Spiel mit den höheren Handkarten fort.
 
-Nach der letzten Karte startet das nächste Level automatisch mit neu gemischten Karten. Der Punktestand und die verbleibenden Leben gehen in das nächste Level über. Das Team gewinnt nach dem letzten Level. Bei null Leben endet die Partie mit einer Niederlage. Aus dem Ergebnis führt „Zurück zur Lobby“ zu einer neuen Partie ab Level 1.
+Nach der letzten Karte startet das nächste Level automatisch mit neu gemischten Karten. Die verbleibenden Leben gehen in das nächste Level über. Das Team gewinnt nach dem letzten Level. Bei null Leben endet die Partie mit einer Niederlage. Aus dem Ergebnis führt „Zurück zur Lobby“ zu einer neuen Partie ab Level 1.
 
 Während des Spiels pausiert der Raumchat. Wenn eine Verbindung ausfällt, pausieren die Züge bis zur Rückkehr. Jeder akzeptierte Zug erhöht den Spielstand um eine Version. Beim Fehlwurf gehören Lebensabzug, Offenlegen und Entfernen der Karten zum selben Zustandswechsel. Bei gleichzeitig eintreffenden Eingaben gilt die Reihenfolge beim Host. Eine überholte Eingabe wird ohne Lebensabzug verworfen. Ein erneut gesendeter, bereits bestätigter Zug wirkt nur einmal.
 

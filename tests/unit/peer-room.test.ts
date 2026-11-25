@@ -154,7 +154,6 @@ test('THESLIBBI legt niedrigere Karten mehrerer Sitze offen und spielt mit höhe
   assert.deepEqual(state.hands, [[20, 55, 90], [3, 8, 21], [6, 17, 80]])
   assert.deepEqual(next.played, [3, 6, 8, 17, 20])
   assert.deepEqual(next.mistakes, [{ level: 3, seat: 0, card: 20, skipped }])
-  assert.equal(viewTheslibbi(next, 0).score, 9)
   for (const seat of [0, 1, 2]) {
     const view = viewTheslibbi(next, seat)
     assert.deepEqual(view.hand, next.hands[seat])
@@ -162,7 +161,7 @@ test('THESLIBBI legt niedrigere Karten mehrerer Sitze offen und spielt mit höhe
   }
   const continued = playTheslibbi(next, 1, 21)
   assert.equal(continued.lives, 2)
-  assert.equal(viewTheslibbi(continued, 1).score, 10)
+  assert.equal(continued.version, 11)
   assert.deepEqual(continued.hands, [[55, 90], [], [80]])
 
   const repeated = playTheslibbi(continued, 2, 80)
@@ -173,7 +172,7 @@ test('THESLIBBI legt niedrigere Karten mehrerer Sitze offen und spielt mit höhe
   const { room } = lobby('theslibbi', 3)
   seed(room)
   const theslibbi = viewTheslibbi(repeated, 0)
-  assert.equal(theslibbi.score, 10)
+  assert.equal(theslibbi.version, 12)
   assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: { ...room.snapshot(0), theslibbi } }))
 })
 
@@ -186,7 +185,7 @@ test('THESLIBBI wertet eine leere letzte Hand mit Leben als Sieg und ohne Leben 
   assert.equal(won.outcome, 'win')
   assert.equal(won.lives, 1)
   assert.deepEqual(won.hands, [[], []])
-  assert.equal(viewTheslibbi(won, 0).score, 154)
+  assert.equal(won.version, 155)
   const lastLife = {
     ...end, level: 2, played: [3, 17], lives: 1, version: 3,
     mistakes: [{ level: 1, seat: 0, card: 42, skipped: [{ seat: 1, card: 15 }] }],
@@ -200,14 +199,14 @@ test('THESLIBBI wertet eine leere letzte Hand mit Leben als Sieg und ohne Leben 
   assert.deepEqual(stopped.played, [3, 17, 90, 91])
 })
 
-test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übernimmt Leben und Punkte', () => {
+test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übernimmt die Leben', () => {
   for (const [size, levelCount] of [[2, 12], [3, 10], [4, 8]] as const) {
     const { room } = lobby('theslibbi', size)
     seed(room)
     const seats = Array.from({ length: size }, (_, seat) => seat)
     const observations = seats.map(() => new Map<number, string>())
     const receipts = seats.map(() => new Map<string, string>())
-    let score = 0
+    let version = 0
     let lives = size
     for (let level = 1; level <= levelCount; level++) {
       const dealt = numberDeal(room, size)
@@ -220,6 +219,7 @@ test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übern
         assert.equal(room.action(wrong.seat, mistake).changed, true)
         receipts[wrong.seat]!.set(mistake.id, digest(mistake))
         played.push(...dealt.filter(({ card }) => card <= wrong.card).map(({ card }) => card))
+        version++
         lives--
       }
       for (const { seat, card } of dealt.slice(played.length)) {
@@ -229,7 +229,7 @@ test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übern
           assert.equal(snapshot.phase, 'playing')
           assert.equal(view.level, level)
           assert.equal(view.levelCount, levelCount)
-          assert.equal(view.score, score)
+          assert.equal(view.version, version)
           assert.equal(view.lives, lives)
           assert.deepEqual(view.played, played)
           assert.deepEqual(view.hand, dealt.filter((entry) =>
@@ -242,10 +242,10 @@ test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übern
         assert.equal(room.action(seat, move).changed, true)
         receipts[seat]!.set(move.id, digest(move))
         played.push(card)
-        score++
+        version++
       }
       const result = room.snapshot(0).theslibbi!
-      assert.equal(result.score, score)
+      assert.equal(result.version, version)
       if (level < levelCount) {
         assert.deepEqual(result.played, [])
         assert.deepEqual(result.last, { seat: dealt.at(-1)!.seat, kind: 'level-up', card: played.at(-1) })
@@ -259,7 +259,7 @@ test('THESLIBBI spielt 12, 10 und 8 Level bis zum nachprüfbaren Sieg und übern
       assert.equal(final.theslibbi!.outcome, 'win')
       assert.deepEqual(final.theslibbi!.hand, [])
       assert.equal(final.theslibbi!.level, levelCount)
-      assert.equal(final.theslibbi!.score, score)
+      assert.equal(final.theslibbi!.version, version)
       assert.equal(final.theslibbi!.lives, lives)
       assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: final }))
       assert.doesNotThrow(() => auditMatch(room.id, proof, events, seat, observations[seat]!, receipts[seat]!, final))
@@ -294,7 +294,7 @@ test('THESLIBBI weist überholte Züge ab und überspringt bei Wiederholung oder
   assert.equal(room.action(closing.seat, lastMove).changed, true)
   const guest = room.snapshot(1)
   assert.equal(guest.theslibbi?.level, 2)
-  assert.equal(guest.theslibbi?.score, 3)
+  assert.equal(guest.theslibbi?.version, 3)
   assert.equal(room.action(closing.seat, lastMove).changed, false)
   assert.throws(() => room.action(closing.seat, { ...lastMove, id: crypto.randomUUID() }), /Spielstand hat sich geändert/)
   assert.deepEqual(room.snapshot(1), guest)
@@ -327,7 +327,7 @@ test('THESLIBBI verarbeitet konkurrierende niedrige und hohe Züge in der Reihen
       const view = snapshot.theslibbi!
       assert.equal(view.lives, highFirst ? 1 : 2)
       assert.equal(view.level, highFirst ? 2 : 1)
-      assert.equal(view.score, highFirst ? 0 : 1)
+      assert.deepEqual(view.played, highFirst ? [] : [first.card])
       assert.equal(view.version, 1)
       assert.deepEqual(view.mistakes, highFirst ? [{ level: 1, ...first, skipped: [stale] }] : [])
       assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby: snapshot }))
@@ -335,7 +335,7 @@ test('THESLIBBI verarbeitet konkurrierende niedrige und hohe Züge in der Reihen
     if (!highFirst) {
       assert.equal(room.action(stale.seat, numberMove(room, stale.seat, stale.card)).changed, true)
       assert.equal(room.snapshot(0).theslibbi?.lives, 2)
-      assert.equal(room.snapshot(0).theslibbi?.score, 2)
+      assert.equal(room.snapshot(0).theslibbi?.version, 2)
     }
   }
 })
@@ -363,7 +363,6 @@ test('THESLIBBI legt auch beim letzten Leben übersprungene Karten offen und hä
     assert.equal(view.version, 2)
     assert.deepEqual(view.played, [...skipped.map(({ card }) => card), wrong.card])
     assert.equal(view.level, 2)
-    assert.equal(view.score, 0)
     assert.deepEqual(view.hand, dealt.filter((entry) => entry.seat === seat && entry.card > wrong.card).map(({ card }) => card))
     assert.deepEqual(view.mistakes.at(-1), { level: 2, ...wrong, skipped })
     assert.deepEqual(view.last, { seat: wrong.seat, kind: 'mistake' })
@@ -386,11 +385,27 @@ test('THESLIBBI-Protokoll lehnt Übertragung fremder Hände und widersprüchlich
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, hands: [view.hand] } } }))
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, hand: [...view.hand].reverse() } } }))
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, lives: 1 } } }))
-  assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, score: 0 } } }))
+  assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, version: view.version + 1 } } }))
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, levelCount: 8 } } }))
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, theslibbi: { ...view, last: { seat: 1, kind: 'level-up' } } } }))
   assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...current, phase: 'finished' } }))
   assert.throws(() => parseAction(numberMove(room, 0, 101)))
+})
+
+test('THESLIBBI synchronisiert Levelfortschritt ohne Punktefeld', () => {
+  const { room } = lobby('theslibbi', 2)
+  seed(room)
+  const first = numberDeal(room, 2)[0]!
+  room.action(first.seat, numberMove(room, first.seat, first.card))
+  for (const seat of [0, 1]) {
+    const lobby = room.snapshot(seat)
+    const view = lobby.theslibbi!
+    assert.equal('score' in view, false)
+    assert.equal(view.version, 1)
+    assert.deepEqual(view.played, [first.card])
+    assert.doesNotThrow(() => parse(fromHost, { type: 'snapshot', lobby }))
+    assert.throws(() => parse(fromHost, { type: 'snapshot', lobby: { ...lobby, theslibbi: { ...view, score: 1 } } }))
+  }
 })
 
 test('THESLIBBI-Protokoll weist widersprüchliche Offenlegungen nach einem Fehlwurf ab', () => {

@@ -23,16 +23,10 @@ type RoundStatus = {
   outcome: 'win' | 'loss' | null
 }
 export type TheslibbiState = RoundStatus & { hands: number[][] }
-export type TheslibbiView = RoundStatus & { seat: number; hand: number[]; handCounts: number[]; score: number }
+export type TheslibbiView = RoundStatus & { seat: number; hand: number[]; handCounts: number[] }
 
 export function theslibbiLevelCount(players: number) {
   return levelCounts.get(players)
-}
-
-export function theslibbiScore(players: number, level: number, discarded: number, mistakes: readonly TheslibbiMistake[]) {
-  const pastLevels = players * (level - 1) * level / 2
-  const mistakenCards = mistakes.reduce((count, mistake) => count + 1 + mistake.skipped.length, 0)
-  return pastLevels + discarded - mistakenCards
 }
 
 function dealHands(players: number, level: number, index?: RandomIndex) {
@@ -90,7 +84,7 @@ export function playTheslibbi(state: TheslibbiState, seat: number, card: number,
 export function viewTheslibbi(state: TheslibbiState, seat: number): TheslibbiView {
   const { level, levelCount, played, lives, mistakes, version, last, outcome, hands } = state
   return {
-    seat, level, levelCount, score: theslibbiScore(hands.length, level, played.length, mistakes),
+    seat, level, levelCount,
     played: [...played], lives, version, last: last && { ...last }, outcome,
     mistakes: mistakes.map((mistake) => ({ ...mistake, skipped: mistake.skipped.map((card) => ({ ...card })) })),
     hand: [...(hands[seat] ?? [])], handCounts: hands.map((hand) => hand.length),
