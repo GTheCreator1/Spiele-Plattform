@@ -10,11 +10,14 @@ const deck = Array.from({ length: theslibbiDeckSize }, (_, index) => index + 1)
 type LastAction =
   | { seat: number; kind: 'played' | 'mistake' }
   | { seat: number; kind: 'level-up'; card: number }
+type SkippedCard = { seat: number; card: number }
+export type TheslibbiMistake = { level: number; seat: number; card: number; skipped: SkippedCard[] }
 type RoundStatus = {
   level: number
   levelCount: number
   lives: number
   played: number[]
+  mistakes: TheslibbiMistake[]
   version: number
   last: LastAction | null
   outcome: 'win' | 'loss' | null
@@ -26,8 +29,10 @@ export function theslibbiLevelCount(players: number) {
   return levelCounts.get(players)
 }
 
-export function theslibbiScore(players: number, level: number, played: number) {
-  return players * (level - 1) * level / 2 + played
+export function theslibbiScore(players: number, level: number, discarded: number, mistakes: readonly TheslibbiMistake[]) {
+  const pastLevels = players * (level - 1) * level / 2
+  const mistakenCards = mistakes.reduce((count, mistake) => count + 1 + mistake.skipped.length, 0)
+  return pastLevels + discarded - mistakenCards
 }
 
 function dealHands(players: number, level: number, index?: RandomIndex) {
@@ -40,38 +45,54 @@ function dealHands(players: number, level: number, index?: RandomIndex) {
 export function newTheslibbi(players: number, index?: RandomIndex): TheslibbiState {
   const levelCount = theslibbiLevelCount(players)
   if (levelCount === undefined) throw new RangeError('THESLIBBI ist für zwei bis vier Personen.')
-  return { level: 1, levelCount, hands: dealHands(players, 1, index), lives: players, played: [], version: 0, last: null, outcome: null }
+  return {
+    level: 1, levelCount, hands: dealHands(players, 1, index), lives: players, played: [],
+    mistakes: [], version: 0, last: null, outcome: null,
+  }
 }
 
 export function playTheslibbi(state: TheslibbiState, seat: number, card: number, nextDealIndex?: RandomIndex): TheslibbiState {
   if (state.outcome) throw new Error('Die Sortierrunde ist beendet.')
   if (state.hands[seat]?.[0] !== card) throw new Error('Du kannst nur deine kleinste Handkarte ausspielen.')
 
-  const version = state.version + 1
-  if (state.hands.some(([lowest]) => lowest !== undefined && lowest < card)) {
-    const lives = state.lives - 1
-    return { ...state, lives, version, last: { seat, kind: 'mistake' }, outcome: lives === 0 ? 'loss' : null }
-  }
+  const skipped: SkippedCard[] = []
+  const hands = state.hands.map((hand, owner) => {
+    if (owner === seat) return hand.slice(1)
+    return hand.filter((held) => {
+      if (held >= card) return true
+      skipped.push({ seat: owner, card: held })
+      return false
+    })
+  })
+  skipped.sort((first, second) => first.card - second.card)
 
-  const hands = state.hands.map((hand, owner) => owner === seat ? hand.slice(1) : hand)
+  const mistaken = skipped.length > 0
+  const lives = state.lives - Number(mistaken)
+  const mistakes = mistaken ? [...state.mistakes, { level: state.level, seat, card, skipped }] : state.mistakes
+  const next: TheslibbiState = {
+    ...state, hands, lives, mistakes, version: state.version + 1,
+    played: [...state.played, ...skipped.map((entry) => entry.card), card],
+    last: { seat, kind: mistaken ? 'mistake' : 'played' },
+  }
+  if (lives === 0) return { ...next, outcome: 'loss' }
+
   const levelComplete = hands.every((hand) => hand.length === 0)
   if (levelComplete && state.level < state.levelCount) {
     const level = state.level + 1
     return {
-      ...state, level, version, hands: dealHands(hands.length, level, nextDealIndex), played: [],
+      ...next, level, hands: dealHands(hands.length, level, nextDealIndex), played: [],
       last: { seat, kind: 'level-up', card },
     }
   }
-  const played = [...state.played, card]
-  const outcome = levelComplete ? 'win' : null
-  return { ...state, hands, played, version, last: { seat, kind: 'played' }, outcome }
+  return { ...next, outcome: levelComplete ? 'win' : null }
 }
 
 export function viewTheslibbi(state: TheslibbiState, seat: number): TheslibbiView {
-  const { level, levelCount, played, lives, version, last, outcome, hands } = state
+  const { level, levelCount, played, lives, mistakes, version, last, outcome, hands } = state
   return {
-    seat, level, levelCount, score: theslibbiScore(hands.length, level, played.length),
+    seat, level, levelCount, score: theslibbiScore(hands.length, level, played.length, mistakes),
     played: [...played], lives, version, last: last && { ...last }, outcome,
+    mistakes: mistakes.map((mistake) => ({ ...mistake, skipped: mistake.skipped.map((card) => ({ ...card })) })),
     hand: [...(hands[seat] ?? [])], handCounts: hands.map((hand) => hand.length),
   }
 }

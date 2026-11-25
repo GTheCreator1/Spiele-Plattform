@@ -21,7 +21,7 @@ Host und Gäste verwenden dieselbe Spielzugprüfung. Beginn, Abbruch der Zufalls
 
 ab6super6 stempelt die Reaktionsfrist beim Ziehen und nach der letzten Ablage auf der Uhr des Host-Browsers. Dessen Timer verarbeitet das letzte Fenster und die Endwertung, sobald die Spezialeffekte abgeschlossen sind. Die Anzeige im Gast-Tab dient als Orientierung. Latenz und Browser-Drosselung können die praktisch verfügbare Reaktionszeit verkürzen.
 
-THESLIBBI verarbeitet Ausspielversuche ohne Zugfolge. Der erste gültige Versuch für den aktuellen Spielstand ändert entweder die Ablage oder die gemeinsamen Leben. Weitere Eingaben für dieselbe Version werden ohne Lebensabzug abgewiesen. Im Spielstand enthält nur die eigene Hand Werte. Für alle anderen Sitze enthält er nur die Anzahl ihrer Handkarten.
+THESLIBBI verarbeitet Ausspielversuche ohne Zugfolge. Der Host legt bei einem Fehlwurf die Fehlkarte und alle übersprungenen Karten in einem Zug offen und zieht ein gemeinsames Leben ab. Weitere Eingaben für dieselbe Version werden ohne Lebensabzug abgewiesen. Alle Sitze erhalten dieselbe öffentliche Information zum Fehlwurf. Für fremde Karten, die noch auf der Hand liegen, enthält der Spielstand nur die Kartenanzahl.
 
 ## Xeri-Referenz
 

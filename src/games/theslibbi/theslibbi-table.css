@@ -98,6 +98,18 @@
 
 .theslibbi-feedback { padding: .75rem; border-radius: 9px; background: #2d2340; text-align: center; }
 .theslibbi-feedback p, .theslibbi-hand-area p { color: #e0d3ed; }
+.theslibbi-skipped {
+  display: grid;
+  gap: .65rem;
+  padding: .75rem;
+  background: #2d2340;
+  border-radius: 9px;
+  overflow-wrap: anywhere;
+}
+.theslibbi-skipped h3 { font-size: 1rem; }
+.theslibbi-skipped p { margin-bottom: .35rem; color: #e0d3ed; font-size: .9rem; }
+.theslibbi-skipped .theslibbi-history { justify-content: flex-start; }
+.theslibbi-skipped li { max-width: 100%; }
 .theslibbi-hand-area { display: grid; gap: .6rem; justify-items: center; min-width: 0; }
 .theslibbi-hand {
   --hand-gap: clamp(.4rem, 1.6vw, .68rem);

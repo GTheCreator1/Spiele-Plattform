@@ -16,6 +16,9 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
   const top = view.played.at(-1)
   const total = seats.length * view.level
   const actor = view.last && seats[view.last.seat]?.player?.name
+  const latestMistake = view.mistakes.at(-1)
+  const levelEndedWithMistake = view.last?.kind === 'level-up' &&
+    latestMistake?.level === view.level - 1 && latestMistake.card === view.last.card
 
   function play(card: number) {
     if (receipt.current?.version !== view.version) receipt.current = { version: view.version, id: crypto.randomUUID() }
@@ -63,9 +66,9 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
         ) : view.outcome === 'loss' ? (
           <><h3>Runde verloren</h3><p>Alle Leben sind verbraucht. Ungespielte Karten bleiben privat.</p></>
         ) : view.last?.kind === 'mistake' ? (
-          <p>Ein Leben verloren. Die Karte bleibt auf der Hand.</p>
+          <p>Ein Leben verloren. Die übersprungenen Karten liegen offen.</p>
         ) : view.last?.kind === 'level-up' ? (
-          <p>Level {view.level - 1} mit der {view.last.card} abgeschlossen.</p>
+          <p>Level {view.level - 1} mit der {view.last.card} abgeschlossen.{levelEndedWithMistake && ' Ein Leben verloren.'}</p>
         ) : (
           <p>{actor ? `${actor} hat ${top} abgelegt.` : 'Spielt die kleinste noch gehaltene Zahl.'}</p>
         )}
@@ -87,6 +90,19 @@ export function TheslibbiTable({ view, seats, match, submit, busy }: {
           </div>
         )}
       </section>
+      {view.mistakes.length > 0 && (
+        <section className="theslibbi-skipped" aria-labelledby="theslibbi-skipped-heading">
+          <h3 id="theslibbi-skipped-heading">Übersprungene Karten</h3>
+          {view.mistakes.map((mistake) => (
+            <div key={`${mistake.level}/${mistake.card}`}>
+              <p>Level {mistake.level} · {seats[mistake.seat]?.player?.name} spielte {mistake.card} zu früh.</p>
+              <ul className="theslibbi-history" role="list">
+                {mistake.skipped.map(({ card, seat }) => <li key={card}><strong>{card}</strong> · {seats[seat]?.player?.name}</li>)}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
     </section>
   )
 }

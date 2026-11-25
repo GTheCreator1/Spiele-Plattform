@@ -10,11 +10,13 @@ In Level 1 erhält jede Person eine private Karte aus dem Zahlenbereich 1 bis 10
 | 3 | 10 | 3 |
 | 4 | 8 | 4 |
 
-Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage und bringt einen Punkt für das Team. Bei einem Fehlversuch verliert das Team ein Leben. Die Karte bleibt für andere verdeckt auf der Hand und kann später richtig ausgespielt werden.
+Jede Person entscheidet selbst, wann sie ihre kleinste Handkarte ausspielt. Der Host prüft den Zug gegen die kleinste noch gehaltene Karte am Tisch. Passt die Zahl, wandert sie auf die gemeinsame Ablage und bringt einen Punkt für das Team.
+
+Bei einem Fehlwurf verliert das Team ein Leben. Der Host entfernt alle noch gehaltenen niedrigeren Karten aus den anderen Händen und legt sie mit der Fehlkarte offen ab. Die Anzeige „Übersprungene Karten“ führt die entfernten Werte und ihre bisherigen Besitzer auf. Das Team setzt das Spiel mit den höheren Handkarten fort. Der Punktestand bleibt bei einem Fehlwurf gleich.
 
 Nach der letzten Karte startet das nächste Level automatisch mit neu gemischten Karten. Der Punktestand und die verbleibenden Leben gehen in das nächste Level über. Das Team gewinnt nach dem letzten Level. Bei null Leben endet die Partie mit einer Niederlage. Aus dem Ergebnis führt „Zurück zur Lobby“ zu einer neuen Partie ab Level 1.
 
-Während des Spiels pausiert der Raumchat. Wenn eine Verbindung ausfällt, pausieren die Züge bis zur Rückkehr. Jeder akzeptierte Zug erhöht den Spielstand um eine Version. Bei gleichzeitig eintreffenden Eingaben gilt die Reihenfolge beim Host. Eine Eingabe für einen überholten Spielstand lässt sich nach der Aktualisierung wiederholen und kostet kein Leben. Ein erneut gesendeter, bereits bestätigter Zug wirkt nur einmal.
+Während des Spiels pausiert der Raumchat. Wenn eine Verbindung ausfällt, pausieren die Züge bis zur Rückkehr. Jeder akzeptierte Zug erhöht den Spielstand um eine Version. Beim Fehlwurf gehören Lebensabzug, Offenlegen und Entfernen der Karten zum selben Zustandswechsel. Bei gleichzeitig eintreffenden Eingaben gilt die Reihenfolge beim Host. Eine überholte Eingabe wird ohne Lebensabzug verworfen. Ein erneut gesendeter, bereits bestätigter Zug wirkt nur einmal.
 
 ## Online-Lobby
 
@@ -26,7 +28,7 @@ Alle Personen tragen kryptografischen Zufall zur Austeilung bei. Aus diesen Beit
 
 ## Frühere Regelwünsche
 
-Die frühere Spezifikation sah einen Startimpuls und das Entfernen übersprungener Karten nach einem Fehlversuch vor. Ein einstimmig angenommener Impuls verbraucht einen gemeinsamen Impuls. Jede Person, die noch Karten hält, legt daraufhin ihre niedrigste Handkarte offen ab. Für die erfolgreich abgeschlossenen Level 2, 5 und 8 war je ein Impuls vorgesehen, für die Level 3, 6 und 9 je ein Leben. Als Höchstwerte waren fünf Leben und drei Impulse vorgesehen. [NSV · damalige Referenz](https://www.nsv.de/infocenter/the-mind-original/)
+Die frühere Spezifikation sah einen Startimpuls vor. Ein einstimmig angenommener Impuls verbraucht einen gemeinsamen Impuls. Jede Person, die noch Karten hält, legt daraufhin ihre niedrigste Handkarte offen ab. Für die erfolgreich abgeschlossenen Level 2, 5 und 8 war je ein Impuls vorgesehen, für die Level 3, 6 und 9 je ein Leben. Als Höchstwerte waren fünf Leben und drei Impulse vorgesehen. [NSV · damalige Referenz](https://www.nsv.de/infocenter/the-mind-original/)
 
 ## Schutzrechtsprüfung für den privaten Einsatz am 25. November 2026
 

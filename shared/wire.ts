@@ -2,6 +2,7 @@ import * as v from 'valibot'
 import { isCard } from '../vendor/xeri/game/engine.js'
 import type { Card } from '../vendor/xeri/game/engine.js'
 import { theslibbiDeckSize, theslibbiLevelCount, theslibbiMaxLevel, theslibbiScore, theslibbiSeats } from '../src/games/theslibbi/engine.ts'
+import type { TheslibbiMistake } from '../src/games/theslibbi/engine.ts'
 import { invitePattern, matchPattern, roomGames, seedPattern, validNickname, validSettings } from './online.ts'
 import { maxAuditEvents } from './game-match.ts'
 
@@ -99,29 +100,68 @@ const theslibbiLastAction = v.variant('kind', [
   object({ seat: index, kind: v.picklist(['played', 'mistake']) }),
   object({ seat: index, kind: v.literal('level-up'), card: numberCard }),
 ])
+const theslibbiMistake = object({
+  level: levelNumber, seat: index, card: numberCard,
+  skipped: v.pipe(v.array(object({ seat: index, card: numberCard })), v.minLength(1),
+    v.maxLength((maxTheslibbiSeats - 1) * theslibbiMaxLevel)),
+})
+
+function validTheslibbiMistakes(mistakes: TheslibbiMistake[], players: number, level: number, played: number[]) {
+  let previousLevel = 0
+  let previousCard = 0
+  let discardedInLevel = 0
+  for (const mistake of mistakes) {
+    if (mistake.level < previousLevel || mistake.level > level || mistake.seat >= players ||
+      mistake.skipped.some(({ seat }) => seat === mistake.seat || seat >= players)) return false
+    if (mistake.level !== previousLevel) {
+      previousCard = 0
+      discardedInLevel = 0
+    }
+    const cards = mistake.skipped.map(({ card }) => card)
+    if (!ascending(cards, previousCard) || cards.at(-1)! >= mistake.card) return false
+    discardedInLevel += cards.length + 1
+    if (discardedInLevel > players * mistake.level) return false
+    if (mistake.level === level) {
+      const position = played.indexOf(mistake.card)
+      if (position < cards.length || !cards.every((card, index) => card === played[position - cards.length + index])) return false
+    }
+    previousLevel = mistake.level
+    previousCard = mistake.card
+  }
+  return true
+}
+
 const theslibbiView = v.pipe(object({
   seat: index, version: natural, lives: natural, outcome: v.nullable(v.picklist(['win', 'loss'])),
   level: levelNumber, levelCount: levelNumber, score: natural,
   hand: v.pipe(v.array(numberCard), v.maxLength(theslibbiMaxLevel)),
   handCounts: v.pipe(v.array(v.pipe(natural, v.maxValue(theslibbiMaxLevel))), v.maxLength(maxTheslibbiSeats)),
   played: v.pipe(v.array(numberCard), v.maxLength(maxTheslibbiSeats * theslibbiMaxLevel)),
+  mistakes: v.pipe(v.array(theslibbiMistake), v.maxLength(maxTheslibbiSeats)),
   last: v.nullable(theslibbiLastAction),
-}), v.check(({ seat, hand, handCounts, level, levelCount, score, lives, played, version, outcome, last }) => {
+}), v.check(({ seat, hand, handCounts, level, levelCount, score, lives, played, mistakes, version, outcome, last }) => {
   const players = handCounts.length
   const remaining = handCounts.reduce((sum, count) => sum + count, 0)
   if (levelCount !== theslibbiLevelCount(players) || level > levelCount || handCounts.some((count) => count > level) ||
-    score !== theslibbiScore(players, level, played.length) || version !== score + players - lives ||
-    handCounts[seat] !== hand.length || lives > players || remaining + played.length !== players * level ||
+    score !== theslibbiScore(players, level, played.length, mistakes) || version !== score + mistakes.length ||
+    handCounts[seat] !== hand.length || lives + mistakes.length !== players || remaining + played.length !== players * level ||
     !ascending(played, 0) || !ascending(hand, played.at(-1) ?? 0) ||
+    !validTheslibbiMistakes(mistakes, players, level, played) ||
     (version === 0) !== (last === null)) return false
   if (last) {
     const count = handCounts[last.seat]
-    if (count === undefined || (last.kind === 'played' && (!played.length || count === level)) ||
-      (last.kind === 'mistake' && (lives === players || count === 0)) ||
-      (last.kind === 'level-up' && (level === 1 || played.length > 0))) return false
+    if (count === undefined) return false
+    if (last.kind === 'level-up') {
+      if (level === 1 || played.length > 0) return false
+    } else {
+      const latest = mistakes.at(-1)
+      const mistakeAtTop = latest?.level === level && latest.card === played.at(-1)
+      if (!played.length || count === level || (last.kind === 'mistake') !== mistakeAtTop ||
+        (mistakeAtTop && latest.seat !== last.seat)) return false
+    }
   }
-  if (lives === 0) return outcome === 'loss' && remaining > 0 && last?.kind === 'mistake'
-  if (remaining === 0) return level === levelCount && outcome === 'win' && last?.kind === 'played'
+  if (lives === 0) return outcome === 'loss' && last?.kind === 'mistake'
+  if (remaining === 0) return level === levelCount && outcome === 'win'
   return outcome === null
 }))
 
