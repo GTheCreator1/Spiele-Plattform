@@ -69,7 +69,7 @@ test('Einladungslink, separater Chromium, Chat, Reconnect und zwei vollständige
 test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussrunde', async ({ browser, baseURL }) => {
   const contexts: BrowserContext[] = []
   try {
-    const hostContext = await browser.newContext({ baseURL })
+    const hostContext = await browser.newContext({ baseURL, reducedMotion: 'no-preference' })
     contexts.push(hostContext)
     const host = await hostContext.newPage()
     const link = await createRoom(host, 'Eins', 'ab6super6', 6)
@@ -103,6 +103,11 @@ test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussru
       const skip = page.getByRole('button', { name: 'Auslassen', exact: true })
       if (await skip.isVisible()) await skip.click()
       if (index === 0) {
+        await host.bringToFront()
+        await expect.poll(() => host.evaluate(() => document.visibilityState)).toBe('visible')
+        const throwButton = host.getByRole('button', { name: 'Reinwerfen', exact: true })
+        await expect(throwButton).toBeVisible()
+        await expect(host.locator('.flight-layer')).toHaveCount(0)
         await host.evaluate(() => {
           const observer = new MutationObserver(() => {
             if (document.querySelector('.flight-layer')) {
@@ -112,8 +117,10 @@ test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussru
           })
           observer.observe(document.body, { childList: true })
         })
-        await host.getByRole('button', { name: 'Reinwerfen', exact: true }).click()
-        await own.getByRole('button', { name: /Platz 1 .*Verdeckt/ }).click()
+        await throwButton.click()
+        const target = own.getByRole('button', { name: /Platz 1 .*Verdeckt/ })
+        await target.click()
+        await expect(target).toHaveCount(0)
         await expect(host.locator('html')).toHaveAttribute('data-throw-animated', 'yes')
         if (await host.getByRole('button', { name: 'Auslassen', exact: true }).isVisible()) {
           await host.getByRole('button', { name: 'Auslassen', exact: true }).click()
