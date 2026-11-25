@@ -5,7 +5,7 @@ import {
 } from '../../src/games/ab6super6/engine.ts'
 import type { CambioAction, CambioCard, CambioState } from '../../src/games/ab6super6/engine.ts'
 
-const rng = () => 0.45
+const rng = (limit: number) => Math.floor(limit * 0.45)
 const use = (state: CambioState, seat: number, action: CambioAction, now = 0) => playCambio(state, seat, action, now, rng)
 
 function arranged(cards: CambioCard[][], draw: CambioCard[] = [], discard: CambioCard[] = []) {

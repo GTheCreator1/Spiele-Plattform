@@ -104,24 +104,6 @@
 .tile-icon { display: grid; flex: 0 0 auto; place-items: center; width: 28px; height: 28px; background: #232635; border-radius: 8px; color: #bfc0cf; }
 .game-tile:has(.availability-ready) .tile-icon { background: #3b282e; color: var(--accent-hover); }
 
-.community-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.community-shortcut {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: .75rem;
-  align-items: center;
-  padding: .82rem .9rem;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #141621;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-.community-shortcut:hover { border-color: #51445c; background: #1b1b2a; }
-.community-shortcut strong, .community-shortcut small { display: block; line-height: 1.3; }
-.community-shortcut strong { font-size: .95rem; font-weight: 780; }
-.community-shortcut small { margin-top: .18rem; color: var(--muted); font-size: .8125rem; }
-.shortcut-status { color: #c0b9cd; border: 1px solid #363242; border-radius: 7px; padding: .28rem .45rem; font-size: .75rem; font-weight: 650; white-space: nowrap; }
-
 .detail-banner {
   position: relative;
   isolation: isolate;
@@ -168,7 +150,7 @@
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
-  .community-shortcuts, .detail-columns { grid-template-columns: 1fr; }
+  .detail-columns { grid-template-columns: 1fr; }
 }
 @media (max-width: 650px) {
   .overview, .game-detail { gap: 1.35rem; }
@@ -190,7 +172,5 @@
 }
 @media (max-width: 360px) {
   .game-grid { grid-template-columns: minmax(0, 1fr); }
-  .topbar-invitations { padding-inline: .6rem; }
-  .community-shortcut { grid-template-columns: auto minmax(0, 1fr); }
-  .shortcut-status { grid-column: 2; width: fit-content; }
+  .topbar-room { padding-inline: .6rem; }
 }

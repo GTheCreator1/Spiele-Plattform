@@ -1,5 +1,7 @@
 import { DECK } from '../../../vendor/xeri/game/engine.js'
 import type { Card } from '../../../vendor/xeri/game/engine.js'
+import { shuffleCards, uniformIndex } from '../../../shared/random.ts'
+import type { RandomIndex } from '../../../shared/random.ts'
 
 export type CambioCard = Card | 'joker-1' | 'joker-2' | 'joker-3'
 export const cambioDeck: readonly CambioCard[] = Object.freeze([...DECK, 'joker-1', 'joker-2', 'joker-3'])
@@ -60,20 +62,9 @@ export function cambioPoints(card: CambioCard) {
   return Number(rank)
 }
 
-function shuffled<T>(cards: readonly T[], random: () => number) {
-  const result = [...cards]
-  for (let end = result.length - 1; end > 0; end--) {
-    const selected = Math.floor(random() * (end + 1))
-    const last = result[end]!
-    result[end] = result[selected]!
-    result[selected] = last
-  }
-  return result
-}
-
-export function newCambio(seats: number, random = Math.random): CambioState {
+export function newCambio(seats: number, index: RandomIndex = uniformIndex): CambioState {
   check(Number.isInteger(seats) && seats >= 2 && seats <= 6, 'ab6super6 benötigt zwei bis sechs Spieler.')
-  const deck = shuffled(cambioDeck, random)
+  const deck = shuffleCards(cambioDeck, index)
   const players = Array.from({ length: seats }, (_, seat) => ({
     cards: Array.from({ length: 4 }, (_, slot) => ({ slot, card: deck[slot * seats + seat]! })),
     nextSlot: 4, ready: false, peeked: false,
@@ -93,9 +84,9 @@ function effectFor(card: CambioCard): EffectKind | undefined {
   if (rank === 'K' && cambioPoints(card) === 10) return 'king'
 }
 
-function take(state: CambioState, random: () => number) {
+function take(state: CambioState, random: RandomIndex) {
   if (state.deck.length === 0 && state.discard.length > 1) {
-    state.deck = shuffled(state.discard.slice(0, -1), random)
+    state.deck = shuffleCards(state.discard.slice(0, -1), random)
     state.discard = state.discard.slice(-1)
   }
   return state.deck.pop()
@@ -105,7 +96,7 @@ function addCard(player: Player, card: CambioCard) {
   player.cards.push({ slot: player.nextSlot++, card })
 }
 
-function settleDebts(state: CambioState, random: () => number) {
+function settleDebts(state: CambioState, random: RandomIndex) {
   while (state.debts[0]) {
     const first = state.debts[0]
     const card = take(state, random)
@@ -186,7 +177,7 @@ function swap(state: CambioState, first: Target, second: Target) {
   b.card = previous
 }
 
-function applyEffect(state: CambioState, actor: number, action: Extract<CambioAction, { type: 'effect-skip' | 'effect-select' | 'effect-finish' }>, random: () => number) {
+function applyEffect(state: CambioState, actor: number, action: Extract<CambioAction, { type: 'effect-skip' | 'effect-select' | 'effect-finish' }>, random: RandomIndex) {
   const effect = state.effects[0]
   check(effect?.seat === actor, 'Diese Spezialaktion ist noch nicht an der Reihe.')
   if (action.type === 'effect-skip') {
@@ -225,7 +216,7 @@ function applyEffect(state: CambioState, actor: number, action: Extract<CambioAc
   }
 }
 
-export function playCambio(previous: CambioState, actor: number, action: CambioAction, now: number, random = Math.random): CambioState {
+export function playCambio(previous: CambioState, actor: number, action: CambioAction, now: number, random: RandomIndex = uniformIndex): CambioState {
   check(Number.isInteger(actor) && previous.players[actor] && (previous.phase === 'setup' || previous.phase === 'playing'),
     'Die Partie ist beendet oder der Sitz ist ungültig.')
   const state = structuredClone(previous)

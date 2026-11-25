@@ -9,9 +9,7 @@ import { RouteErrorBoundary } from './ui/RouteErrorBoundary'
 
 const GameDetail = lazy(loadGameDetail)
 const XeriTable = lazy(loadXeriTable)
-const Friends = lazy(() => import('./features/community/Friends'))
-const Messages = lazy(() => import('./features/community/Messages'))
-const Profile = lazy(() => import('./features/community/Profile'))
+const Settings = lazy(() => import('./features/community/Settings'))
 const Lobby = lazy(() => import('./features/community/Lobby'))
 
 export function App() {
@@ -35,11 +33,9 @@ function PlatformRoutes() {
             <Route path="/spiele" element={<GameCatalog />} />
             <Route path="/spiele/:gameId" element={<GameDetail />} />
             <Route path="/spiele/xeri/tisch" element={<XeriTable />} />
-            <Route path="/freunde" element={<Friends />} />
-            <Route path="/nachrichten" element={<Messages />} />
-            <Route path="/profil" element={<Profile />} />
+            <Route path="/einstellungen" element={<Settings />} />
             <Route path="/lobby" element={<Lobby />} />
-            <Route path="/anmeldung/weiter" element={<p role="status">Anmeldung wird geprüft …</p>} />
+            <Route path="/lobby/:invite" element={<Lobby />} />
             <Route path="*" element={<MissingPage />} />
           </Routes>
         </Suspense>

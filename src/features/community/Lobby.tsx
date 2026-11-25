@@ -1,41 +1,125 @@
+import { Copy, Share2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import type { Lobby as LobbyState, OnlineAction } from '../../../shared/online'
-import { onlineNames } from '../../../shared/online'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import type { AuditStatus, Message, OnlineAction } from '../../../shared/online'
+import { invitePattern, onlineNames, validNickname } from '../../../shared/online'
 import { CambioTable } from '../../games/ab6super6/CambioTable'
 import { OnlineXeri } from '../../games/xeri/OnlineXeri'
+import type { RoomStatus } from '../../platform/peer-client'
+import { storedGuest } from '../../platform/peer-storage'
 import { useOnline } from '../../platform/online'
+import { RoomFields, RoomForm } from './RoomForm'
 import { useCommand } from './useCommand'
 import '../../styles/community.css'
 
+const checks: Record<Exclude<AuditStatus, 'idle'>, string> = {
+  checking: 'Die Endwertung wird nachgerechnet …',
+  verified: 'Kartenmischung und Spielverlauf nachgerechnet.',
+  single: 'Spielverlauf nachgerechnet. Ein Mensch hat zum Zufall beigetragen.',
+  failed: 'Die Nachprüfung hat eine Abweichung festgestellt.',
+  unavailable: 'Die Nachprüfung war für diese Partie nicht verfügbar.',
+}
+
 export default function Lobby() {
-  const online = useOnline()
-  const command = useCommand()
-  const data = online.snapshot
-  const lobby = data?.lobby
-  if (!lobby) return (
+  const { invite } = useParams()
+  const { room, opening } = useOnline()
+  if (invite && !invitePattern.test(invite)) return (
     <section className="page-heading">
-      <h1>Private Lobby</h1>
-      <p>{online.loading ? 'Sitzung wird geprüft …' : 'Wähle ein Spiel oder nimm eine Einladung an.'}</p>
-      <Link className="button button-primary" to="/spiele">Zur Spielebibliothek</Link>
+      <h1>Einladungslink ungültig</h1>
+      <p>Bitte lass dir den vollständigen Link zum Spielraum senden.</p>
+      <Link className="button button-primary" to="/">Zurück zum Hauptmenü</Link>
     </section>
   )
-  const host = lobby.host === data.user.id
-  const self = lobby.seats.find((seat) => seat.player?.id === data.user.id)
-  const canStart = lobby.seats.every((seat) => seat.ready && seat.online)
+  if (room && (!invite || room.invite === invite)) return <ActiveLobby room={room} />
+  if (invite) return <JoinRoom key={invite} invite={invite} />
+  return (
+    <div className="page-view lobby-page">
+      <header className="page-heading"><h1>Privater Spielraum</h1><p>Wähle ein Spiel und teile den Einladungslink mit deiner Runde.</p></header>
+      {opening ? <p role="status">Spielraum wird vorbereitet …</p> : <section className="surface settings-panel"><RoomForm /></section>}
+      <Link className="text-link" to="/">Zurück zum Hauptmenü</Link>
+    </div>
+  )
+}
+
+function JoinRoom({ invite }: { invite: string }) {
+  const { start, room, opening } = useOnline()
+  const command = useCommand()
+  const [name, setName] = useState(() => storedGuest(invite)?.name ?? '')
+  const tried = useRef(false)
+  const [autoError, setAutoError] = useState('')
+  useEffect(() => {
+    const saved = storedGuest(invite)
+    if (room || tried.current || !saved || !validNickname(saved.name)) return
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      tried.current = true
+      void start({ kind: 'guest', name: saved.name, invite }).catch((error: unknown) => {
+        if (active) setAutoError(error instanceof Error ? error.message : 'Wiederverbindung fehlgeschlagen.')
+      })
+    })
+    return () => { active = false }
+  }, [invite, room, start])
+  return (
+    <div className="page-view lobby-page">
+      <header className="page-heading"><h1>Einladung zum Spielraum</h1><p>Gib den Namen ein, den deine Mitspieler sehen sollen.</p></header>
+      <form className="surface settings-panel online-form" onSubmit={(event) => {
+        event.preventDefault()
+        command.run(() => start({ kind: 'guest', name: name.trim(), invite }))
+      }}>
+        <label>Spitzname<input required maxLength={24} autoComplete="nickname" value={name} onChange={(event) => setName(event.target.value)} /></label>
+        {(command.error || autoError) && <p role="alert" className="inline-error">{command.error || autoError}</p>}
+        <button className="button button-primary" disabled={opening || command.pending}>Raum beitreten</button>
+      </form>
+      <Link className="text-link" to="/">Zurück zum Hauptmenü</Link>
+    </div>
+  )
+}
+
+function ActiveLobby({ room }: { room: RoomStatus }) {
+  const { act, leave, reconnect } = useOnline()
+  const command = useCommand()
+  const navigate = useNavigate()
+  const lobby = room.lobby
+  const leaveRoom = () => { leave(); void navigate('/') }
+  const lobbyLinks = (
+    <div className="online-actions">
+      <Link className="text-link" to="/">Zurück zum Hauptmenü</Link>
+      <button className="button button-secondary" onClick={leaveRoom}>Raum verlassen</button>
+    </div>
+  )
+  if (!lobby) return (
+    <section className="page-heading">
+      <h1>Privater Spielraum</h1>
+      <p role="status">{room.status}</p>
+      {room.retry && <button className="button button-primary" onClick={reconnect}>Erneut verbinden</button>}
+      {lobbyLinks}
+    </section>
+  )
+  const self = lobby.seats[lobby.self]
+  const allPresent = lobby.seats.every((seat) => seat.online)
+  const canStart = allPresent && lobby.seats.every((seat) => seat.ready)
   const occupied = lobby.seats.filter((seat) => seat.bot || seat.player).length
-  const busy = command.pending || !online.live
-  function submit(action: OnlineAction) { command.run(() => online.act(action)) }
+  const busy = command.pending || !room.connected
+  const turnBlocked = busy || !allPresent
+  const canChange = room.host && occupied === 1 && lobby.phase === 'open'
+  const submit = (action: OnlineAction) => command.run(() => act(action))
   return (
     <div className="page-view lobby-page">
       <header className="lobby-heading">
-        <div><h1>{onlineNames[lobby.game]}</h1><p>Private Lobby · {occupied}/{lobby.capacity} Plätze</p></div>
-        <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-leave' })}>Lobby verlassen</button>
+        <div><h1>{onlineNames[lobby.game]}</h1><p>Privater Raum · {occupied}/{lobby.capacity} Plätze</p></div>
+        {lobbyLinks}
       </header>
+      <div className="online-actions">
+        <p className={room.connected ? 'room-connection-on' : 'muted'} role="status">{room.status}</p>
+        {room.retry && <button className="button button-secondary" onClick={reconnect}>Erneut verbinden</button>}
+      </div>
+      {lobby.notice && <p className="muted">{lobby.notice}</p>}
+      {lobby.phase === 'playing' && !allPresent && <p className="inline-error">Die Partie wartet auf alle Mitspieler.</p>}
       {command.error && <p className="inline-error" role="alert">{command.error}</p>}
       <div className="lobby-layout">
         <div className="lobby-main">
-          {lobby.phase === 'open' ? (
+          {(lobby.phase === 'open' || lobby.phase === 'seeding') ? (
             <section className="surface settings-panel">
               <h2>Spielplätze</h2>
               {lobby.seats.map((seat) => (
@@ -43,99 +127,136 @@ export default function Lobby() {
                   <div>
                     <strong>{seat.player?.name ?? (seat.bot ? `Bot ${seat.seat + 1}` : 'Freier Platz')}</strong>
                     <p>{lobby.game === 'xeri' && lobby.capacity === 4 ? `Team ${seat.seat % 2 === 0 ? 'A' : 'B'} · ` : ''}
-                      {seat.player && !seat.online ? 'Offline' : seat.ready ? 'Bereit' : seat.player ? 'Wartet' : 'Offen'}</p>
+                      {seat.player && !seat.online ? 'Getrennt' : seat.ready ? 'Bereit' : seat.player ? 'Wartet' : 'Offen'}</p>
                   </div>
-                  {host && lobby.game === 'xeri' && lobby.capacity === 4 && !seat.player && (
+                  {room.host && lobby.phase === 'open' && seat.seat !== 0 && lobby.game === 'xeri' && lobby.capacity === 4 && !seat.player && (
                     <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-bot', seat: seat.seat, enabled: !seat.bot })}>{seat.bot ? 'Bot entfernen' : 'Bot hinzufügen'}</button>
+                  )}
+                  {room.host && lobby.phase === 'open' && seat.player && !seat.online && (
+                    <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-release', seat: seat.seat })}>Platz freigeben</button>
                   )}
                 </div>
               ))}
-              <div className="online-actions">
-                {self && <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-ready', ready: !self.ready })}>{self.ready ? 'Warten' : 'Bereit'}</button>}
-                {host && <button className="button button-primary" disabled={busy || !canStart} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
-              </div>
+              {lobby.phase === 'seeding' ? (
+                <div className="online-actions">
+                  <p>Der gemeinsame Zufall wird vorbereitet …</p>
+                  {room.host && <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-cancel' })}>Vorbereitung abbrechen</button>}
+                </div>
+              ) : (
+                <div className="online-actions">
+                  {self && <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-ready', ready: !self.ready })}>{self.ready ? 'Warten' : 'Bereit'}</button>}
+                  {room.host && <button className="button button-primary" disabled={busy || !canStart} onClick={() => submit({ type: 'lobby-start' })}>Partie starten</button>}
+                </div>
+              )}
             </section>
           ) : (
             <>
-              {lobby.xeri && <OnlineXeri key={lobby.match} lobby={lobby} submit={submit} busy={busy} />}
-              {lobby.cambio && <CambioTable key={lobby.match} lobby={lobby} submit={submit} busy={busy} />}
-              {host && lobby.phase === 'finished' && (
+              {lobby.xeri && <OnlineXeri key={lobby.match} lobby={lobby} submit={submit} busy={turnBlocked} />}
+              {lobby.cambio && <CambioTable key={lobby.match} lobby={lobby} submit={submit} busy={turnBlocked} />}
+              {lobby.phase === 'finished' && room.audit !== 'idle' && <p className={room.audit === 'failed' ? 'inline-error' : 'muted'}>{checks[room.audit]}</p>}
+              {room.host && lobby.phase === 'finished' && (
                 <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-rematch' })}>Zurück zur Lobby</button>
               )}
             </>
           )}
         </div>
         <aside className="lobby-side">
-          {lobby.phase === 'open' && occupied < lobby.capacity && (
+          {room.host && (lobby.phase === 'open' || lobby.phase === 'seeding') && <Invitation invite={room.invite} />}
+          {canChange && (
             <section className="surface settings-panel">
-              <h2>Freunde einladen</h2>
-              {data.friends.filter((friend) => !lobby.seats.some((seat) => seat.player?.id === friend.id)).map((friend) => (
-                <div className="member-row" key={friend.id}>
-                  <span><strong>{friend.name}</strong><p>{friend.online ? 'Online' : 'Offline'}</p></span>
-                  <button className="button button-secondary" disabled={busy} onClick={() => submit({ type: 'lobby-invite', player: friend.id })}>Einladen</button>
-                </div>
-              ))}
-              {data.friends.length === 0 && <Link className="text-link" to="/freunde">Freunde hinzufügen</Link>}
+              <h2>Spiel wechseln</h2>
+              <fieldset className="online-form room-fields" disabled={busy}>
+                <RoomFields settings={lobby} onChange={(settings) => submit({ type: 'lobby-settings', settings })} />
+              </fieldset>
             </section>
           )}
-          <LobbyChat key={lobby.id} lobby={lobby} live={online.live} />
+          <LobbyChat key={lobby.id} messages={room.messages} live={room.connected} />
         </aside>
       </div>
     </div>
   )
 }
 
-function LobbyChat({ lobby, live }: { lobby: LobbyState; live: boolean }) {
-  const online = useOnline()
+function Invitation({ invite }: { invite: string }) {
+  const address = new URL(import.meta.env.BASE_URL, window.location.origin)
+  address.hash = `/lobby/${invite}`
+  const url = address.href
+  const input = useRef<HTMLInputElement>(null)
+  const [hint, setHint] = useState('')
+  return (
+    <section className="surface settings-panel">
+      <h2>Runde einladen</h2>
+      <p className="muted">Teile den Link privat, zum Beispiel über WhatsApp. Lass diesen Tab beim Spielen geöffnet.</p>
+      <div className="online-form">
+        <label>Einladungslink<input ref={input} value={url} readOnly /></label>
+        <div className="online-actions">
+          <button className="button button-primary" type="button" onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(url)
+              setHint('Link kopiert.')
+            } catch {
+              input.current?.select()
+              setHint('Der Link ist markiert. Kopiere ihn über das Menü deines Geräts.')
+            }
+          }}><Copy size={17} aria-hidden="true" /> Link kopieren</button>
+          {typeof navigator.share === 'function' && <button className="button button-secondary" type="button" onClick={async () => {
+            try { await navigator.share({ title: 'Einladung zu Stichrunde', url }) }
+            catch (error) {
+              if (!(error instanceof Error && error.name === 'AbortError')) setHint('Kopiere den Link und teile ihn in deinem Messenger.')
+            }
+          }}><Share2 size={17} aria-hidden="true" /> Teilen</button>}
+        </div>
+        {hint && <p className="muted" role="status">{hint}</p>}
+      </div>
+    </section>
+  )
+}
+
+function LobbyChat({ messages, live }: { messages: Message[]; live: boolean }) {
+  const { act } = useOnline()
   const command = useCommand()
   const [message, setMessage] = useState('')
   const [open, setOpen] = useState(false)
-  const [seen, setSeen] = useState(lobby.chat.at(-1)?.id ?? 0)
+  const [seen, setSeen] = useState(messages.at(-1)?.id ?? 0)
   const list = useRef<HTMLUListElement>(null)
   const pending = useRef<{ id: string; message: string } | null>(null)
-  const unread = lobby.chat.filter((item) => item.id > seen).length
-  const lastId = lobby.chat.at(-1)?.id ?? 0
-
+  const unread = messages.filter((item) => item.id > seen).length
+  const lastId = messages.at(-1)?.id ?? 0
   useEffect(() => {
     if (!open) return
     setSeen(lastId)
     if (list.current) list.current.scrollTop = list.current.scrollHeight
   }, [lastId, open])
-
   return (
     <section className="surface settings-panel lobby-chat">
       <div className="dialog-heading">
         <h2>Ingame-Chat</h2>
-        <button className="button button-quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Minimieren' : unread ? `Öffnen (${unread})` : 'Öffnen'}
-        </button>
+        <button className="button button-quiet" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Minimieren' : unread ? `Öffnen (${unread})` : 'Öffnen'}</button>
       </div>
-      {open && (
-        <>
-          <ul aria-label="Chatnachrichten" ref={list}>
-            {lobby.chat.map(({ id, from, text, sentAt }) => (
-              <li key={id}><small><strong>{from?.name ?? 'Gelöschtes Konto'}</strong> · {new Date(sentAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</small><p>{text}</p></li>
-            ))}
-          </ul>
-          {command.error && <p className="inline-error" role="alert">{command.error}</p>}
-          {!live && <p className="muted">Verbindung unterbrochen.</p>}
-          <form className="online-form" onSubmit={(event) => {
-            event.preventDefault()
-            const text = message.trim()
-            if (!text) return
-            if (pending.current?.message !== text) pending.current = { id: crypto.randomUUID(), message: text }
-            const id = pending.current.id
-            command.run(async () => {
-              await online.act({ type: 'chat', id, text })
-              pending.current = null
-              setMessage((draft) => draft.trim() === text ? '' : draft)
-            })
-          }}>
-            <label>Nachricht<input minLength={1} maxLength={500} required value={message} onChange={(event) => setMessage(event.target.value)} /></label>
-            <button className="button button-primary" disabled={!live || command.pending}>Senden</button>
-          </form>
-        </>
-      )}
+      {open && <>
+        <ul aria-label="Chatnachrichten" ref={list}>
+          {messages.map(({ id, from, text, sentAt }) => (
+            <li key={id}><small><strong>{from.name}</strong> · {new Date(sentAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</small><p>{text}</p></li>
+          ))}
+        </ul>
+        {command.error && <p className="inline-error" role="alert">{command.error}</p>}
+        {!live && <p className="muted">Verbindung unterbrochen.</p>}
+        <form className="online-form" onSubmit={(event) => {
+          event.preventDefault()
+          const text = message.trim()
+          if (!text) return
+          if (pending.current?.message !== text) pending.current = { id: crypto.randomUUID(), message: text }
+          const id = pending.current.id
+          command.run(async () => {
+            await act({ type: 'chat', id, text })
+            pending.current = null
+            setMessage((draft) => draft.trim() === text ? '' : draft)
+          })
+        }}>
+          <label>Nachricht<input maxLength={500} required value={message} onChange={(event) => setMessage(event.target.value)} /></label>
+          <button className="button button-primary" disabled={!live || command.pending}>Senden</button>
+        </form>
+      </>}
     </section>
   )
 }

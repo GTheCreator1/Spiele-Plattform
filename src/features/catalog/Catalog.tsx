@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Bell, Bot, Gamepad2, Play, UsersRound } from 'lucide-react'
+import { Gamepad2, Play, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import hero from '../../assets/hero.webp'
 import mobileHero from '../../assets/hero-mobile.webp'
 import { preloadGame } from './game-loaders'
 import { games } from './games'
-import { useOnline } from '../../platform/online'
 import type { Game } from './games'
 import '../../styles/catalog.css'
 
@@ -16,7 +15,6 @@ const filters = [
 ] as const
 
 export function Overview() {
-  const { configured } = useOnline()
   return (
     <div className="page-view overview">
       <section className="welcome-hero" aria-labelledby="welcome-title">
@@ -26,7 +24,7 @@ export function Overview() {
         </picture>
         <div className="hero-copy">
           <h1 id="welcome-title">Willkommen<br />am <em>Spieltisch.</em></h1>
-          <p>Vier Kartenspiele für eure Runde. Starte eine Partie Xeri gegen den Computer.</p>
+          <p>Spiel Xeri gegen den Computer oder öffne einen privaten Raum für deine Runde.</p>
           <div className="hero-actions">
             <Link
               className="button button-primary"
@@ -36,23 +34,11 @@ export function Overview() {
             >
               <Play size={16} fill="currentColor" aria-hidden="true" /> Xeri spielen
             </Link>
-            <Link className="button button-quiet" to="/spiele">Alle Spiele</Link>
+            <Link className="button button-quiet" to="/lobby">Mit Freunden spielen</Link>
           </div>
         </div>
       </section>
       <GameGrid overview />
-      <section className="community-shortcuts" aria-label="Freunde und Einladungen">
-        <Link className="community-shortcut" to="/freunde">
-          <span className="feature-icon feature-icon-violet"><UsersRound size={19} aria-hidden="true" /></span>
-          <span><strong>Freunde</strong><small>Freundeslisten und Online-Status</small></span>
-          {!configured && <span className="shortcut-status">In Entwicklung</span>}
-        </Link>
-        <Link className="community-shortcut" to="/nachrichten">
-          <span className="feature-icon feature-icon-amber"><Bell size={19} aria-hidden="true" /></span>
-          <span><strong>Einladungen</strong><small>Einladungen und Ingame-Chat</small></span>
-          {!configured && <span className="shortcut-status">In Entwicklung</span>}
-        </Link>
-      </section>
     </div>
   )
 }
@@ -66,11 +52,8 @@ export function GameCatalog() {
 }
 
 function GameGrid({ overview = false }: { overview?: boolean }) {
-  const { configured } = useOnline()
   const [filter, setFilter] = useState<typeof filters[number]['value']>('all')
-  const visibleGames = games.map((game) => ({
-    ...game, available: game.available || (configured && game.id === 'ab6super6'),
-  })).filter((game) => filter === 'all' || (filter === 'ready' ? game.available : !game.available))
+  const visibleGames = games.filter((game) => filter === 'all' || (filter === 'ready' ? game.available : !game.available))
   const Heading = overview ? 'h2' : 'h1'
   return (
     <section className="game-library" aria-labelledby="game-library-title">
@@ -99,7 +82,6 @@ export function Availability({ available }: { available: boolean }) {
 }
 
 function GameTile({ game }: { game: Game }) {
-  const PlayersIcon = game.id === 'xeri' ? Bot : UsersRound
   return (
     <Link
       className="game-tile"
@@ -118,7 +100,7 @@ function GameTile({ game }: { game: Game }) {
         <h3 id={`${game.id}-tile-title`}>{game.name}</h3>
         <p>{game.description}</p>
         <div className="tile-footer">
-          <span><PlayersIcon size={15} aria-hidden="true" />{game.players}</span>
+          <span><UsersRound size={15} aria-hidden="true" />{game.players}</span>
           <span className="tile-icon">{game.available ? <Play size={15} aria-hidden="true" /> : <Gamepad2 size={16} aria-hidden="true" />}</span>
         </div>
       </div>

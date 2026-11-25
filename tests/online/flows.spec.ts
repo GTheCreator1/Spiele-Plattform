@@ -1,146 +1,130 @@
-import { randomBytes } from 'node:crypto'
-import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import { chromium, devices, expect, test } from '@playwright/test'
+import type { BrowserContext, Page } from '@playwright/test'
 
-const password = 'Browser-Tests-2026!'
-const nextPassword = 'Wiederherstellung-2026!'
-const invitedWith = process.env.STICHRUNDE_TEST_INVITE!
-const suffix = () => randomBytes(3).toString('hex')
+const verified = 'Kartenmischung und Spielverlauf nachgerechnet.'
 
-async function register(page: Page, username: string, withInvalidInvite = false) {
-  await page.goto('./#/profil')
-  await page.getByRole('button', { name: 'Konto erstellen' }).click()
-  await page.getByLabel('Benutzername').fill(username)
-  await page.getByLabel('Passwort', { exact: false }).first().fill(password)
-  await page.getByLabel('Passwort wiederholen').fill(password)
-  await page.getByLabel('Einladungscode').fill(withInvalidInvite ? 'ungueltig' : invitedWith)
-  await page.getByRole('button', { name: 'Konto erstellen' }).click()
-  if (withInvalidInvite) {
-    await expect(page.getByRole('alert')).toContainText('Einladungscode ist ungültig')
-    await page.getByLabel('Benutzername').fill(username)
-    await page.locator('input[name=password]').fill(password)
-    await page.getByLabel('Passwort wiederholen').fill(password)
-    await page.getByLabel('Einladungscode').fill(invitedWith)
-    await page.getByRole('button', { name: 'Konto erstellen' }).click()
-  }
-  await expect(page.getByRole('heading', { name: 'Recovery-Codes sichern' })).toBeVisible()
-  const codes = await page.locator('code').allTextContents()
-  expect(codes).toHaveLength(3)
-  await page.getByRole('link', { name: 'Weiter zur Plattform' }).click()
-  await expect(page.getByRole('heading', { name: username, exact: true })).toBeVisible()
-  return codes
-}
-
-async function makeFriends(first: Page, second: Page, name: string) {
-  await first.getByRole('link', { name: 'Freunde', exact: true }).click()
-  await second.getByRole('link', { name: 'Freunde', exact: true }).click()
-  await first.getByLabel('Benutzername').fill(name)
-  await first.getByRole('button', { name: 'Suchen' }).click()
-  await first.getByRole('button', { name: 'Anfragen' }).click()
-  await expect(first.getByText('Anfrage offen')).toBeVisible()
-  await second.getByRole('button', { name: 'Annehmen' }).click()
-  await expect(first.getByRole('button', { name: 'Entfernen' })).toBeVisible()
-}
-
-async function createLobby(host: Page, guest: Page, game: 'xeri' | 'ab6super6', seats: string) {
+async function createRoom(host: Page, name: string, game: 'xeri' | 'ab6super6', seats: number) {
   await host.goto(`./#/spiele/${game}`)
-  await host.getByLabel('Spielerplätze').selectOption(seats)
-  await host.getByRole('button', { name: 'Private Lobby erstellen' }).click()
-  await host.getByRole('button', { name: 'Einladen', exact: true }).click()
-  await guest.getByRole('button', { name: /^Einladungen/ }).click()
-  await guest.getByRole('dialog').getByRole('button', { name: 'Annehmen' }).click()
-  await expect(guest.getByRole('heading', { name: 'Spielplätze' })).toBeVisible()
-  await guest.getByRole('button', { name: 'Bereit', exact: true }).click()
-  if (game === 'xeri' && seats === '4') {
-    for (let index = 0; index < 2; index++) await host.getByRole('button', { name: 'Bot hinzufügen' }).first().click()
-  }
-  await host.getByRole('button', { name: 'Partie starten' }).click()
+  await host.getByLabel('Spitzname').fill(name)
+  await host.getByLabel('Spielerplätze').selectOption(String(seats))
+  await host.getByRole('button', { name: 'Privaten Raum erstellen' }).click()
+  await expect(host.getByText('Spielraum ist erreichbar.')).toBeVisible()
+  const link = await host.getByLabel('Einladungslink', { exact: true }).inputValue()
+  expect(new URL(link).hash).toMatch(/^#\/lobby\/[0-9a-f]{48}$/)
+  return link
 }
 
-test('getrennte Konten, Live-Freundschaft, Einladung, Chat und beide Xeri-Onlinemodi', async ({ browser, baseURL, request }) => {
-  const hostContext = await browser.newContext({ baseURL, reducedMotion: 'reduce' })
-  const guestContext = await browser.newContext({ baseURL, reducedMotion: 'reduce' })
+async function joinRoom(guest: Page, name: string, link: string) {
+  await guest.goto(link)
+  await guest.getByLabel('Spitzname').fill(name)
+  await guest.getByRole('button', { name: 'Raum beitreten' }).click()
+  await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 15_000 })
+  await guest.getByRole('button', { name: 'Bereit', exact: true }).click()
+}
+
+function hand(page: Page) {
+  return page.getByRole('group', { name: 'Deine Handkarten' }).getByRole('button')
+}
+
+function messageBox(page: Page) {
+  return page.getByRole('textbox', { name: 'Nachricht', exact: true })
+}
+
+test('Einladungslink, separater Chromium, Chat, Reconnect und zwei vollständige Xeri-Modi', async ({ browser, baseURL }) => {
+  const second = await chromium.launch({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  })
+  const hostContext = await browser.newContext({ baseURL, reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] })
+  const guestContext = await second.newContext({ baseURL, reducedMotion: 'reduce' })
   try {
     const host = await hostContext.newPage()
     const guest = await guestContext.newPage()
-    const uri = 'http://127.0.0.1:8789/api/state'
-    const blocked = await request.get(uri, { headers: { Origin: 'https://different.example' } })
-    expect(blocked.status()).toBe(403)
-    const denied = await request.get(uri, { headers: { Origin: new URL(baseURL!).origin } })
-    expect(denied.status()).toBe(401)
-    const name = `Gast_${suffix()}`
-    await register(host, `Host_${suffix()}`, true)
-    await register(guest, name)
-    await makeFriends(host, guest, name)
-    await createLobby(host, guest, 'xeri', '2')
-    const hostHand = host.getByRole('group', { name: 'Deine Handkarten' }).getByRole('button')
-    const guestHand = guest.getByRole('group', { name: 'Deine Handkarten' }).getByRole('button')
-    await expect(hostHand).toHaveCount(4)
-    await expect(guestHand).toHaveCount(4)
-    const ownCards = await hostHand.evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))
-    const otherCards = await guestHand.evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))
-    expect(ownCards.every((label) => !otherCards.includes(label))).toBe(true)
+    const link = await createRoom(host, 'Alex', 'xeri', 2)
+    await host.getByRole('button', { name: 'Link kopieren' }).click()
+    await expect(host.getByText('Link kopiert.', { exact: true })).toBeVisible()
+    expect(await host.evaluate(() => navigator.clipboard.readText())).toBe(link)
+    await joinRoom(guest, 'Jamie', link)
+    await host.getByRole('button', { name: 'Partie starten', exact: true }).click()
+    await expect(hand(host)).toHaveCount(4)
+    await expect(hand(guest)).toHaveCount(4)
+    const labels = await hand(guest).evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))
+    const other = await hand(host).evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))
+    expect(labels.every((card) => !other.includes(card))).toBe(true)
+    await expect(guest.getByRole('button', { name: 'Partie starten', exact: true })).toHaveCount(0)
 
     await host.getByRole('button', { name: 'Öffnen', exact: true }).click()
-    await host.getByRole('textbox', { name: 'Nachricht', exact: true }).fill('Hallo <Gruppe> & Schönes Spiel ♥')
+    const text = '<mark> & Schönes Spiel ♥'
+    await messageBox(host).fill(text)
     await host.getByRole('button', { name: 'Senden', exact: true }).click()
     await guest.getByRole('button', { name: 'Öffnen (1)' }).click()
-    await expect(guest.getByText('Hallo <Gruppe> & Schönes Spiel ♥', { exact: true })).toBeVisible()
+    await expect(guest.getByText(text, { exact: true })).toBeVisible()
+    await expect(guest.getByRole('list', { name: 'Chatnachrichten' }).locator('mark')).toHaveCount(0)
 
+    await guestContext.setOffline(true)
+    await expect(host.getByText('Die Partie wartet auf alle Mitspieler.')).toBeVisible({ timeout: 15_000 })
+    await expect(hand(host).first()).toBeDisabled()
+    await guestContext.setOffline(false)
+    await expect(guest.getByText('Mit dem Host verbunden.')).toBeVisible({ timeout: 15_000 })
     await guest.reload()
-    await expect(guestHand).toHaveCount(4)
-    await expect(guestHand.first()).toBeDisabled()
-    for (let move = 0; move < 48; move++) {
-      const active = move % 2 === 0 ? hostHand : guestHand
-      await active.first().click()
-    }
-    await expect(host.getByRole('status')).toContainText('Partie beendet')
-    await expect(guest.getByRole('status')).toContainText('Partie beendet')
-    await expect(hostHand).toHaveCount(0)
-    await expect(guestHand).toHaveCount(0)
-    await host.getByRole('button', { name: 'Zurück zur Lobby' }).click()
-    await expect(guest.getByRole('heading', { name: 'Spielplätze' })).toBeVisible()
-    await host.getByRole('button', { name: 'Lobby verlassen' }).click()
-    await guest.getByRole('button', { name: 'Lobby verlassen' }).click()
-    await createLobby(host, guest, 'xeri', '4')
+    await expect(hand(guest)).toHaveCount(4, { timeout: 15_000 })
+    expect(await hand(guest).evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))).toEqual(labels)
+
+    for (let move = 0; move < 48; move++) await hand(move % 2 === 0 ? host : guest).first().click()
+    await expect(host.getByText(verified, { exact: true })).toBeVisible()
+    await expect(guest.getByText(verified, { exact: true })).toBeVisible()
+    await host.getByRole('button', { name: 'Raum verlassen' }).click()
+    await expect(guest.getByText('Der Host hat den Raum geschlossen.')).toBeVisible()
+
+    const teams = await createRoom(host, 'Alex', 'xeri', 4)
+    await joinRoom(guest, 'Jamie', teams)
+    for (let bot = 0; bot < 2; bot++) await host.getByRole('button', { name: 'Bot hinzufügen' }).first().click()
+    await host.getByRole('button', { name: 'Partie starten', exact: true }).click()
     await expect(host.getByText('Dein Team', { exact: true })).toBeVisible()
-    for (let move = 0; move < 24; move++) await (move % 2 === 0 ? hostHand : guestHand).first().click()
-    await expect(host.getByRole('status')).toContainText('Partie beendet')
-    await expect(guest.getByRole('status')).toContainText('Partie beendet')
+    for (let move = 0; move < 24; move++) await hand(move % 2 === 0 ? host : guest).first().click()
+    await expect(host.getByText(verified, { exact: true })).toBeVisible()
+    await expect(guest.getByText(verified, { exact: true })).toBeVisible()
   } finally {
     await hostContext.close()
     await guestContext.close()
+    await second.close()
   }
 })
 
-test('ab6super6 bleibt nach dem Klopfen bis zum letzten Fristablauf verdeckt', async ({ browser, baseURL }) => {
-  const hostContext = await browser.newContext({ baseURL })
-  const guestContext = await browser.newContext({ baseURL })
+test('ab6super6 mit sechs Personen, privater Startsicht und kompletter Schlussrunde', async ({ browser, baseURL }) => {
+  const contexts: BrowserContext[] = []
   try {
+    const hostContext = await browser.newContext({ baseURL })
+    contexts.push(hostContext)
     const host = await hostContext.newPage()
-    const guest = await guestContext.newPage()
-    const name = `Zwei_${suffix()}`
-    await register(host, `Eins_${suffix()}`)
-    await register(guest, name)
-    await makeFriends(host, guest, name)
-    await createLobby(host, guest, 'ab6super6', '2')
-    await host.getByRole('button', { name: 'Untere Karten ansehen' }).click()
+    const link = await createRoom(host, 'Eins', 'ab6super6', 6)
+    const pages = [host]
+    for (const [index, name] of ['Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs'].entries()) {
+      const context = await browser.newContext(index === 0 ? { baseURL, ...devices['iPhone 13'] } : { baseURL })
+      contexts.push(context)
+      const guest = await context.newPage()
+      pages.push(guest)
+      await joinRoom(guest, name, link)
+    }
+    await expect(host.getByText('Privater Raum · 6/6 Plätze')).toBeVisible()
+    await host.getByRole('button', { name: 'Partie starten', exact: true }).click()
+    const guest = pages[1]!
     const own = host.getByRole('region', { name: 'Deine Auslage' })
+    await host.getByRole('button', { name: 'Untere Karten ansehen' }).click()
     await expect(own.getByRole('button', { name: /Verdeckt/ })).toHaveCount(2)
-    await expect(guest.getByRole('region', { name: /^Auslage von/ }).getByRole('button', { name: /Verdeckt/ })).toHaveCount(4)
-    await host.getByRole('button', { name: 'Verdecken und bereit' }).click()
-    await guest.getByRole('button', { name: 'Verdecken und bereit' }).click()
+    await expect(guest.getByRole('region', { name: 'Auslage von Eins' }).getByRole('button', { name: /Verdeckt/ })).toHaveCount(4)
+    await expect.poll(() => guest.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    await guest.setViewportSize({ width: 844, height: 390 })
+    await expect.poll(() => guest.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(844)
+    for (const page of pages) await page.getByRole('button', { name: 'Verdecken und bereit' }).click()
+
     await host.getByRole('button', { name: 'Klopfen', exact: true }).click()
-    for (const page of [guest, host]) {
+    for (const [index, page] of [...pages.slice(1), host].entries()) {
       await page.getByRole('button', { name: 'Karte ziehen' }).click()
       await page.getByRole('button', { name: 'Gezogene Karte ablegen' }).click()
+      await expect(page.getByRole('button', { name: 'Gezogene Karte ablegen' })).toHaveCount(0)
       const skip = page.getByRole('button', { name: 'Auslassen', exact: true })
-      try {
-        await skip.click({ timeout: 1200 })
-      } catch {
-        await expect(page.getByRole('button', { name: 'Auslassen', exact: true })).toHaveCount(0)
-      }
-      if (page === guest) {
+      if (await skip.isVisible()) await skip.click()
+      if (index === 0) {
         await host.evaluate(() => {
           const observer = new MutationObserver(() => {
             if (document.querySelector('.flight-layer')) {
@@ -153,46 +137,17 @@ test('ab6super6 bleibt nach dem Klopfen bis zum letzten Fristablauf verdeckt', a
         await host.getByRole('button', { name: 'Reinwerfen', exact: true }).click()
         await own.getByRole('button', { name: /Platz 1 .*Verdeckt/ }).click()
         await expect(host.locator('html')).toHaveAttribute('data-throw-animated', 'yes')
-        await expect(host.locator('.flight-layer')).toHaveCount(0)
-        const effect = host.getByRole('button', { name: 'Auslassen', exact: true })
-        if (await effect.isVisible()) await effect.click()
+        if (await host.getByRole('button', { name: 'Auslassen', exact: true }).isVisible()) {
+          await host.getByRole('button', { name: 'Auslassen', exact: true }).click()
+        }
       }
     }
-    await expect(host.getByText('Endwertung', { exact: true })).toBeVisible({ timeout: 9000 })
-    await expect(guest.getByText('Endwertung', { exact: true })).toBeVisible()
+    for (const page of pages) {
+      await expect(page.getByText('Endwertung', { exact: true })).toBeVisible()
+      await expect(page.getByText(verified, { exact: true })).toBeVisible()
+    }
     await expect(own.getByRole('button', { name: /Verdeckt/ })).toHaveCount(0)
-    await expect(own.getByText(/Punkte ·/)).toBeVisible()
   } finally {
-    await hostContext.close()
-    await guestContext.close()
+    await Promise.all(contexts.map((context) => context.close()))
   }
-})
-
-test('Recovery-Code ist einmalig und Kontolöschung widerruft die Sitzung', async ({ page }) => {
-  const username = `Recovery_${suffix()}`
-  const [code] = await register(page, username)
-  await page.getByRole('button', { name: 'Abmelden' }).click()
-  await page.getByRole('button', { name: 'Passwort wiederherstellen' }).click()
-  await page.getByLabel('Benutzername').fill(username)
-  await page.getByLabel('Recovery-Code').fill(code!)
-  await page.locator('input[name=password]').fill(nextPassword)
-  await page.getByLabel('Passwort wiederholen').fill(nextPassword)
-  await page.getByRole('button', { name: 'Passwort wiederherstellen' }).click()
-  await expect(page.getByRole('heading', { name: username, exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Abmelden' }).click()
-  await page.getByRole('button', { name: 'Passwort wiederherstellen' }).click()
-  await page.getByLabel('Benutzername').fill(username)
-  await page.getByLabel('Recovery-Code').fill(code!)
-  await page.locator('input[name=password]').fill(password)
-  await page.getByLabel('Passwort wiederholen').fill(password)
-  await page.getByRole('button', { name: 'Passwort wiederherstellen' }).click()
-  await expect(page.getByRole('alert')).toContainText('ungültig')
-  await page.getByRole('link', { name: 'Anmelden', exact: true }).click()
-  await page.getByLabel('Benutzername').fill(username)
-  await page.getByLabel('Passwort', { exact: true }).fill(nextPassword)
-  await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
-  await page.getByRole('button', { name: 'Konto löschen', exact: true }).click()
-  await page.getByLabel('Passwort bestätigen').fill(nextPassword)
-  await page.getByRole('button', { name: 'Konto endgültig löschen' }).click()
-  await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible()
 })
